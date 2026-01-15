@@ -162,7 +162,8 @@ export const addRiskComment = async (req: AuthRequest, res: Response) => {
             return res.status(404).json({ success: false, message: 'Analysis not found' });
         }
 
-        const idx = parseInt(clauseIdx);
+        const idx = parseInt(clauseIdx as string);
+
         if (isNaN(idx) || idx < 0 || idx >= analysis.riskAssessments.length) {
             return res.status(400).json({ success: false, message: 'Invalid clause index' });
         }
