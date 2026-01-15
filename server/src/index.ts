@@ -20,22 +20,39 @@ import axios from 'axios';
 // Load environment variables
 dotenv.config();
 
-// Connect to database
+// Log startup info for debugging
+console.log('=== DealGuard Server Starting ===');
+console.log(`NODE_ENV: ${process.env.NODE_ENV || 'not set'}`);
+console.log(`PORT: ${process.env.PORT || '5000 (default)'}`);
+console.log(`MONGODB_URI: ${process.env.MONGODB_URI ? 'configured' : 'NOT SET'}`);
+console.log(`CLIENT_URL: ${process.env.CLIENT_URL || 'not set'}`);
+console.log(`AI_SERVICE_URL: ${process.env.AI_SERVICE_URL || 'not set'}`);
+console.log('================================');
+
+// Connect to database (non-blocking)
 connectDB();
 
 const app = express();
 
-// Initialize Sentry
-Sentry.init({
-  dsn: process.env.SENTRY_DSN_BACKEND,
-  integrations: [
-    nodeProfilingIntegration(),
-  ],
-  tracesSampleRate: 1.0,
-});
-
-// The request handler must be the first middleware on the app
-Sentry.setupExpressErrorHandler(app);
+// Initialize Sentry (wrapped in try-catch to prevent crashes if not configured)
+try {
+  if (process.env.SENTRY_DSN_BACKEND) {
+    Sentry.init({
+      dsn: process.env.SENTRY_DSN_BACKEND,
+      integrations: [
+        nodeProfilingIntegration(),
+      ],
+      tracesSampleRate: 1.0,
+    });
+    // The request handler must be the first middleware on the app
+    Sentry.setupExpressErrorHandler(app);
+    console.log('Sentry initialized successfully');
+  } else {
+    console.warn('SENTRY_DSN_BACKEND not set, Sentry error tracking disabled');
+  }
+} catch (error) {
+  console.error('Failed to initialize Sentry:', error);
+}
 
 // Middleware
 app.use((req, res, next) => {
