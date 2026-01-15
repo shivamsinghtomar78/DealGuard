@@ -9,7 +9,7 @@ export default withSentryConfig(nextConfig, {
   org: "dealguard",
   project: "frontend",
   widenClientFileUpload: true,
-  hideSourceMaps: true,
-  disableLogger: true,
 });
+
+
 
