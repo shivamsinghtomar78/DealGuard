@@ -1,13 +1,27 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
+import os
+from dotenv import load_dotenv
+
+# Load environment variables early for LangChain tracing
+load_dotenv()
+
 from app.config import settings
+
+# Explicitly set LangChain environment variables from settings if present
+if settings.langchain_tracing_v2 or os.getenv("LANGCHAIN_TRACING_V2") == "true":
+    os.environ["LANGCHAIN_TRACING_V2"] = "true"
+    os.environ["LANGCHAIN_ENDPOINT"] = settings.langchain_endpoint
+    os.environ["LANGCHAIN_API_KEY"] = settings.langchain_api_key
+    os.environ["LANGCHAIN_PROJECT"] = settings.langchain_project
+    print(f"📡 LangSmith Tracing enabled for project: {settings.langchain_project}")
+
 from app.models.schemas import (
     ContractAnalysisRequest, 
     ContractAnalysisResponse, 
     RedlineRequest,
     SearchRequest,
     SearchResponse,
-    ChatHistoryRequest,
     ChatHistoryRequest,
     ChatHistoryResponse,
     AnalysisTaskResponse
@@ -20,33 +34,11 @@ from app.utils.vector_store import vector_store
 from app.tasks import analyze_contract_task
 from app.agents.rag_agent import RAGAgent
 from fastapi.responses import FileResponse
-import os
 import time
 import uuid
 from datetime import datetime
-from dotenv import load_dotenv
-
-# Load environment variables early for LangChain tracing
-load_dotenv()
-
-# Explicitly set LangChain environment variables from settings if present
-if settings.langchain_tracing_v2:
-    os.environ["LANGCHAIN_TRACING_V2"] = "true"
-    os.environ["LANGCHAIN_ENDPOINT"] = settings.langchain_endpoint
-    os.environ["LANGCHAIN_API_KEY"] = settings.langchain_api_key
-    os.environ["LANGCHAIN_PROJECT"] = settings.langchain_project
-    print(f"📡 LangSmith Tracing enabled for project: {settings.langchain_project}")
-
-import os
-
-# Configure LangChain Tracing if keys are present
-if settings.langchain_api_key:
-    os.environ["LANGCHAIN_TRACING_V2"] = "true"
-    os.environ["LANGCHAIN_ENDPOINT"] = settings.langchain_endpoint
-    os.environ["LANGCHAIN_API_KEY"] = settings.langchain_api_key
-    os.environ["LANGCHAIN_PROJECT"] = settings.langchain_project
-
 from contextlib import asynccontextmanager
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
