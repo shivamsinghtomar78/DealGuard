@@ -8,10 +8,9 @@ from app.workflows.analysis_workflow import ContractAnalysisWorkflow
 from app.parsers.pdf_parser import PDFParser, DOCXParser
 from app.utils.vector_store import vector_store
 
-@celery_app.task(bind=True, name="app.tasks.analyze_contract_task")
-def analyze_contract_task(self, file_path, contract_id, category, user_id, webhook_url=None):
+def process_contract_analysis(file_path, contract_id, category, user_id, webhook_url=None):
     """
-    Asynchronous task for contract analysis.
+    Core logic for contract analysis, decoupled from Celery for flexible execution.
     """
     start_time = time.time()
     workflow = ContractAnalysisWorkflow()
@@ -26,7 +25,7 @@ def analyze_contract_task(self, file_path, contract_id, category, user_id, webho
         extracted_data = parser.extract_text()
         contract_text = extracted_data['full_text']
         
-        # Index in Vector Store (sync here as it's a worker)
+        # Index in Vector Store (sync here)
         vector_store.add_document(
             contract_text, 
             {
@@ -111,3 +110,11 @@ def analyze_contract_task(self, file_path, contract_id, category, user_id, webho
             os.remove(file_path)
             
         raise e
+
+@celery_app.task(bind=True, name="app.tasks.analyze_contract_task")
+def analyze_contract_task(self, file_path, contract_id, category, user_id, webhook_url=None):
+    """
+    Celery wrapper for contract analysis.
+    """
+    return process_contract_analysis(file_path, contract_id, category, user_id, webhook_url)
+

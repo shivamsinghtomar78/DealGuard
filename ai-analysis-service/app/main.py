@@ -28,7 +28,7 @@ from app.models.schemas import (
 )
 
 from app.utils.vector_store import vector_store
-# from app.tasks import analyze_contract_task # Removing direct import to avoid loading heavy dependencies in API
+from app.tasks import process_contract_analysis # Direct import for free-tier sync execution
 from app.celery_app import celery_app 
 # from app.agents.rag_agent import RAGAgent # Moved to lazy import
 from fastapi.responses import FileResponse
@@ -132,23 +132,26 @@ async def analyze_uploaded_contract(
         
         analysis_id = contract_id or str(uuid.uuid4())
         
-        # Trigger Celery task using send_task to decouple from worker code
-        task = celery_app.send_task(
-            "app.tasks.analyze_contract_task",
-            kwargs={
-                "file_path": file_path,
-                "contract_id": analysis_id,
-                "category": category,
-                "user_id": user_id,
-                "webhook_url": webhook_url
-            }
+        # Trigger analysis synchronously in background (Free Tier / No Celery Mode)
+        # Using FastAPI's background_tasks runs this in the same process but after the response is sent.
+        # This saves memory vs running a separate worker.
+        background_tasks.add_task(
+            process_contract_analysis,
+            file_path=file_path,
+            contract_id=analysis_id,
+            category=category,
+            user_id=user_id,
+            webhook_url=webhook_url
         )
         
+        # Keep task_id for backward compatibility
+        task_id = str(uuid.uuid4())
+        
         return {
-            "task_id": task.id,
+            "task_id": task_id,
             "analysis_id": analysis_id,
             "status": "pending",
-            "message": "Analysis started in background"
+            "message": "Analysis started in background (Free Tier)"
         }
         
     except Exception as e:
@@ -223,23 +226,23 @@ async def analyze_contract_text(request: ContractAnalysisRequest, background_tas
             {"contract_name": os.path.basename(file_path), "category": request.category.value}
         )
         
-        # Run workflow (Asynchronous)
-        task = celery_app.send_task(
-            "app.tasks.analyze_contract_task",
-            kwargs={
-                "file_path": file_path,
-                "contract_id": request.contract_id,
-                "category": request.category.value,
-                "user_id": request.user_id,
-                "webhook_url": request.webhook_url if hasattr(request, 'webhook_url') else None
-            }
+        # Run workflow (Asynchronous / Free Tier)
+        background_tasks.add_task(
+            process_contract_analysis,
+            file_path=file_path,
+            contract_id=request.contract_id,
+            category=request.category.value,
+            user_id=request.user_id,
+            webhook_url=request.webhook_url if hasattr(request, 'webhook_url') else None
         )
         
+        task_id = str(uuid.uuid4())
+        
         return {
-            "task_id": task.id,
+            "task_id": task_id,
             "analysis_id": request.contract_id,
             "status": "pending",
-            "message": "Analysis started in background"
+            "message": "Analysis started in background (Free Tier)"
         }
     
     except Exception as e:
