@@ -27,12 +27,10 @@ from app.models.schemas import (
     AnalysisTaskResponse
 )
 
-from app.workflows.analysis_workflow import ContractAnalysisWorkflow
-from app.parsers.pdf_parser import PDFParser, DOCXParser
-from app.agents.redlining_agent import RedliningAgent
 from app.utils.vector_store import vector_store
-from app.tasks import analyze_contract_task
-from app.agents.rag_agent import RAGAgent
+# from app.tasks import analyze_contract_task # Removing direct import to avoid loading heavy dependencies in API
+from app.celery_app import celery_app 
+# from app.agents.rag_agent import RAGAgent # Moved to lazy import
 from fastapi.responses import FileResponse
 import time
 import uuid
@@ -43,7 +41,13 @@ from contextlib import asynccontextmanager
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Load heavy AI agents here, AFTER the server has likely bound to its port
+    # LAZY IMPORT AGENTS HERE to avoid top-level memory usage
     print("🧠 Initializing AI Agents (lifespan startup)...")
+    
+    from app.workflows.analysis_workflow import ContractAnalysisWorkflow
+    from app.agents.redlining_agent import RedliningAgent
+    from app.agents.rag_agent import RAGAgent
+
     app.state.workflow = ContractAnalysisWorkflow()
     app.state.redlining_agent = RedliningAgent()
     app.state.rag_agent = RAGAgent()
@@ -128,13 +132,16 @@ async def analyze_uploaded_contract(
         
         analysis_id = contract_id or str(uuid.uuid4())
         
-        # Trigger Celery task
-        task = analyze_contract_task.delay(
-            file_path=file_path,
-            contract_id=analysis_id,
-            category=category,
-            user_id=user_id,
-            webhook_url=webhook_url
+        # Trigger Celery task using send_task to decouple from worker code
+        task = celery_app.send_task(
+            "app.tasks.analyze_contract_task",
+            kwargs={
+                "file_path": file_path,
+                "contract_id": analysis_id,
+                "category": category,
+                "user_id": user_id,
+                "webhook_url": webhook_url
+            }
         )
         
         return {
@@ -217,12 +224,15 @@ async def analyze_contract_text(request: ContractAnalysisRequest, background_tas
         )
         
         # Run workflow (Asynchronous)
-        task = analyze_contract_task.delay(
-            file_path=file_path,
-            contract_id=request.contract_id,
-            category=request.category.value,
-            user_id=request.user_id,
-            webhook_url=request.webhook_url if hasattr(request, 'webhook_url') else None
+        task = celery_app.send_task(
+            "app.tasks.analyze_contract_task",
+            kwargs={
+                "file_path": file_path,
+                "contract_id": request.contract_id,
+                "category": request.category.value,
+                "user_id": request.user_id,
+                "webhook_url": request.webhook_url if hasattr(request, 'webhook_url') else None
+            }
         )
         
         return {
