@@ -1,0 +1,40 @@
+# FastAPI & Web Server
+fastapi
+uvicorn[standard]
+python-multipart
+pydantic>=2.5.0
+pydantic-settings
+
+# LangChain & LangGraph
+langchain
+langchain-openai
+langchain-community
+langchain-google-genai
+langgraph
+langsmith
+
+# Vector Store
+chromadb
+pymilvus
+pymilvus[model]
+torch --extra-index-url https://download.pytorch.org/whl/cpu
+
+# Document Processing
+pypdf
+python-docx
+pdfplumber
+
+# Database
+motor
+pymongo
+
+# LLM Providers
+openai>=1.0.0
+
+# Utilities
+python-dotenv
+httpx
+tenacity
+celery
+redis
+pinecone-client

@@ -1,0 +1,116 @@
+import express from 'express';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
+import cors from 'cors';
+import cookieParser from 'cookie-parser';
+import helmet from 'helmet';
+import connectDB from './config/db.js';
+import userRoutes from './routes/userRoutes.js';
+import lawyerRoutes from './routes/lawyerRoutes.js';
+import contractRoutes from './routes/contractRoutes.js';
+import signatureRoutes from './routes/signatureRoutes.js';
+import blogRoutes from './routes/blogRoutes.js';
+import searchRoutes from './routes/searchRoutes.js';
+import * as Sentry from "@sentry/node";
+import { nodeProfilingIntegration } from "@sentry/profiling-node";
+import mongoose from 'mongoose';
+import axios from 'axios';
+
+// Load environment variables
+dotenv.config();
+
+// Connect to database
+connectDB();
+
+const app = express();
+
+// Initialize Sentry
+Sentry.init({
+  dsn: process.env.SENTRY_DSN_BACKEND,
+  integrations: [
+    nodeProfilingIntegration(),
+  ],
+  tracesSampleRate: 1.0,
+});
+
+// The request handler must be the first middleware on the app
+Sentry.setupExpressErrorHandler(app);
+
+// Middleware
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.url}`);
+  next();
+});
+app.use(helmet());
+app.use(cors({
+  origin: process.env.CLIENT_URL || 'http://localhost:5173',
+  credentials: true
+}));
+app.use(express.json());
+app.use(cookieParser());
+
+// Serve uploads
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
+// Routes
+app.use('/api/v1', userRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/lawyers', lawyerRoutes);
+app.use('/api/contracts', contractRoutes);
+app.use('/api/signatures', signatureRoutes);
+app.use('/api/blog', blogRoutes);
+app.use('/api/search', searchRoutes);
+
+// Health Check Endpoint
+app.get('/api/health', async (req, res) => {
+  const health = {
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    services: {
+      mongodb: 'unknown',
+      ai_service: 'unknown',
+    }
+  };
+
+  try {
+    // Check MongoDB
+    if (mongoose.connection.readyState === 1) {
+      health.services.mongodb = 'connected';
+    } else {
+      health.services.mongodb = 'disconnected';
+      health.status = 'degraded';
+    }
+
+    // Check AI Service
+    const aiServiceUrl = process.env.AI_SERVICE_URL || 'http://localhost:8000';
+    try {
+      const aiResponse = await axios.get(`${aiServiceUrl}/health`, { timeout: 2000 });
+      if (aiResponse.status === 200) {
+        health.services.ai_service = 'connected';
+      } else {
+        health.services.ai_service = 'error';
+        health.status = 'degraded';
+      }
+    } catch (e) {
+      health.services.ai_service = 'disconnected';
+      health.status = 'degraded';
+    }
+  } catch (error) {
+    health.status = 'error';
+  }
+
+  res.json(health);
+});
+
+// Test route
+app.get('/', (req, res) => {
+  res.json({ message: 'DealGuard API - Contract Intelligence Platform' });
+});
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});

@@ -1,0 +1,38 @@
+{
+  "timestamp": "2026-01-15T00:37:02.301153",
+  "evaluations": [
+    {
+      "test_name": "Standard Service Agreement",
+      "duration": 132.3955008983612,
+      "error": "",
+      "risk_score": 8.5,
+      "clauses_found": 4,
+      "risks_identified": 4,
+      "alternatives_generated": 4,
+      "summary_length": 3022,
+      "high_risk_detail_score": 1.0,
+      "alternative_coverage": 1.0,
+      "tone_professionalism_score": 0.6
+    },
+    {
+      "test_name": "Complex Partnership",
+      "duration": 132.41147685050964,
+      "error": "",
+      "risk_score": 9.25,
+      "clauses_found": 4,
+      "risks_identified": 4,
+      "alternatives_generated": 4,
+      "summary_length": 3412,
+      "high_risk_detail_score": 1.0,
+      "alternative_coverage": 1.0,
+      "tone_professionalism_score": 0.6
+    }
+  ],
+  "summary_metrics": {
+    "avg_duration": 132.40348887443542,
+    "avg_risk_score": 8.875,
+    "avg_clauses": 4.0,
+    "avg_risks": 4.0,
+    "avg_alternative_coverage": 1.0
+  }
+}

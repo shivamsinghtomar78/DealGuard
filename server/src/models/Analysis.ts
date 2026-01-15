@@ -1,0 +1,103 @@
+import mongoose, { Schema, Document } from 'mongoose';
+
+export interface IRiskAssessment {
+    clauseId?: string;
+    clauseText: string;
+    riskLevel: 'low' | 'medium' | 'high' | 'critical';
+    riskExplanation: string;
+    standardAlternative?: string;
+    legalReasoning?: string;
+    comments?: IComment[];
+}
+
+export interface IComment {
+    _id?: string;
+    userId: mongoose.Types.ObjectId;
+    userName: string;
+    content: string;
+    mentions?: string[];
+    timestamp: Date;
+}
+
+export interface IAgentLog {
+    agent: string;
+    action: string;
+    message: string;
+    timestamp: Date;
+    node: string;
+    data?: any;
+}
+
+export interface IAnalysis extends Document {
+    userId: mongoose.Types.ObjectId;
+    templateId?: mongoose.Types.ObjectId;
+    contractFileName: string;
+    contractFilePath: string;
+    overallRiskScore: number;
+    riskAssessments: IRiskAssessment[];
+    aiSummary?: string;
+    engineVersion?: string;
+    expertReview?: {
+        lawyerId: mongoose.Types.ObjectId;
+        comments: string;
+        reviewedAt: Date;
+    };
+    status: 'pending' | 'analyzing' | 'completed' | 'expert-review';
+    purchasedAt: Date;
+    completedAt?: Date;
+    fullText?: string;
+    agentLogs: IAgentLog[];
+}
+
+const RiskAssessmentSchema: Schema = new Schema({
+    clauseId: String,
+    clauseText: String,
+    riskLevel: {
+        type: String,
+        enum: ['low', 'medium', 'high', 'critical']
+    },
+    riskExplanation: String,
+    standardAlternative: String,
+    legalReasoning: String,
+    comments: [{
+        userId: { type: Schema.Types.ObjectId, ref: 'User' },
+        userName: String,
+        content: String,
+        mentions: [String],
+        timestamp: { type: Date, default: Date.now }
+    }]
+});
+
+const AnalysisSchema: Schema = new Schema({
+    userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    templateId: { type: Schema.Types.ObjectId, ref: 'ContractTemplate' },
+    contractFileName: { type: String, required: true },
+    contractFilePath: { type: String, required: true },
+    overallRiskScore: { type: Number, min: 0, max: 10 },
+    riskAssessments: [RiskAssessmentSchema],
+    aiSummary: String,
+    engineVersion: { type: String, default: '1.0.0' },
+    expertReview: {
+        lawyerId: { type: Schema.Types.ObjectId, ref: 'Lawyer' },
+        comments: String,
+        reviewedAt: Date
+    },
+    status: {
+        type: String,
+        enum: ['pending', 'analyzing', 'completed', 'expert-review'],
+        default: 'pending'
+    },
+    purchasedAt: { type: Date, default: Date.now },
+    completedAt: Date,
+    fullText: String,
+    agentLogs: [{
+        agent: String,
+        action: String,
+        message: String,
+        timestamp: { type: Date, default: Date.now },
+        node: String,
+        data: Schema.Types.Mixed
+    }]
+});
+
+export default mongoose.model<IAnalysis>('Analysis', AnalysisSchema);
