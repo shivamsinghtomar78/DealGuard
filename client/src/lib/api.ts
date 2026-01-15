@@ -39,14 +39,16 @@ apiClient.interceptors.response.use(
 
 // Auth endpoints
 export const authAPI = {
-    signup: (data: { name: string; username: string; password: string; company?: string }) =>
+    signup: (data: { name: string; email: string; password: string; company?: string }) =>
         apiClient.post('/v1/signup', data),
 
-    signin: (data: { username: string; password: string }) =>
+
+    signin: (data: { email: string; password: string }) =>
         apiClient.post('/v1/signin', data),
 
-    login: (data: { username: string; password: string }) =>
+    login: (data: { email: string; password: string }) =>
         apiClient.post('/v1/signin', data), // Keep login as alias for backward compatibility or refactor pages
+
 
     logout: () =>
         apiClient.post('/v1/logout'),

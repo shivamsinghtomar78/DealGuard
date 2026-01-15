@@ -5,9 +5,10 @@ import jwt from 'jsonwebtoken';
 export interface IUser extends Document {
     _id: mongoose.Types.ObjectId;
     name: string;
-    username: string;
+    email: string;
     password: string;
     company: string;
+
     purchasedAnalyses: mongoose.Types.ObjectId[];
     createdAt: Date;
     comparePassword(password: string): Promise<boolean>;
@@ -16,7 +17,15 @@ export interface IUser extends Document {
 
 const UserSchema: Schema = new Schema({
     name: { type: String, required: true, trim: true },
-    username: { type: String, required: true, unique: true, trim: true, minlength: 3, maxlength: 10 },
+    email: {
+        type: String,
+        required: true,
+        unique: true,
+        trim: true,
+        lowercase: true,
+        match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please add a valid email']
+    },
+
     password: { type: String, required: true, select: false },
     company: { type: String, default: '' },
     purchasedAnalyses: [{ type: Schema.Types.ObjectId, ref: 'Analysis' }],

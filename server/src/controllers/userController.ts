@@ -18,31 +18,34 @@ const sendTokenResponse = (user: any, statusCode: number, res: Response) => {
         user: {
             id: user._id,
             name: user.name,
-            username: user.username,
+            email: user.email,
             company: user.company
         }
+
     });
 };
 
 export const signup = async (req: Request, res: Response) => {
     try {
-        const { name, username, password, company } = req.body;
+        const { name, email, password, company } = req.body;
 
         // Validation constraints
-        const usernameValid = username && username.length >= 3 && username.length <= 10;
+        const emailRegex = /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/;
+        const emailValid = email && emailRegex.test(email);
         const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,20}$/;
         const passwordValid = password && passwordRegex.test(password);
 
-        if (!usernameValid || !passwordValid) {
-            return res.status(411).json({ success: false, message: 'Invalid username or password format' });
+        if (!emailValid || !passwordValid) {
+            return res.status(411).json({ success: false, message: 'Invalid email or password format' });
         }
 
-        const userExists = await User.findOne({ username });
+        const userExists = await User.findOne({ email });
         if (userExists) {
-            return res.status(403).json({ success: false, message: 'User already exists with this username' });
+            return res.status(403).json({ success: false, message: 'User already exists with this email' });
         }
 
-        const user = await User.create({ name, username, password, company });
+        const user = await User.create({ name, email, password, company });
+
 
         const token = user.getSignedJwtToken();
         res.status(200).json({
@@ -52,9 +55,10 @@ export const signup = async (req: Request, res: Response) => {
             user: {
                 id: user._id,
                 name: user.name,
-                username: user.username,
+                email: user.email,
                 company: user.company
             }
+
         });
     } catch (error: any) {
         res.status(500).json({ success: false, message: 'Server error' });
@@ -63,15 +67,16 @@ export const signup = async (req: Request, res: Response) => {
 
 export const signin = async (req: Request, res: Response) => {
     try {
-        const { username, password } = req.body;
-        if (!username || !password) {
-            return res.status(403).json({ success: false, message: 'Please provide username and password' });
+        const { email, password } = req.body;
+        if (!email || !password) {
+            return res.status(403).json({ success: false, message: 'Please provide email and password' });
         }
 
-        const user = await User.findOne({ username }).select('+password');
+        const user = await User.findOne({ email }).select('+password');
         if (!user || !(await user.comparePassword(password))) {
             return res.status(403).json({ success: false, message: 'Invalid credentials' });
         }
+
 
         const token = user.getSignedJwtToken();
         res.status(200).json({
@@ -79,9 +84,10 @@ export const signin = async (req: Request, res: Response) => {
             user: {
                 id: user._id,
                 name: user.name,
-                username: user.username,
+                email: user.email,
                 company: user.company
             }
+
         });
     } catch (error: any) {
         res.status(500).json({ success: false, message: 'Internal server error' });

@@ -13,7 +13,9 @@ import { useAuthStore } from '@/stores/authStore';
 
 const signupSchema = z.object({
     name: z.string().min(2, 'Name must be at least 2 characters'),
-    username: z.string().min(3, 'Username must be 3-10 characters').max(10, 'Username must be 3-10 characters'),
+    email: z.string().email('Invalid email address'),
+
+
     password: z.string()
         .min(8, 'Password must be at least 8 characters')
         .max(20, 'Password must be at most 20 characters')
@@ -133,20 +135,22 @@ export default function SignupPage() {
 
                             <div className="space-y-1.5">
                                 <label className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em] ml-2">
-                                    Identity Handle
+                                    Identity Email
                                 </label>
+
                                 <div className="relative">
                                     <User className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20" />
                                     <input
-                                        type="text"
-                                        {...register('username')}
+                                        type="email"
+                                        {...register('email')}
                                         className="w-full pl-14 pr-6 py-4 bg-white/[0.03] border border-white/5 rounded-2xl focus:ring-1 focus:ring-purple-500/50 outline-none text-sm font-medium transition-all placeholder:text-white/10"
-                                        placeholder="Username"
+                                        placeholder="Email Address"
                                     />
                                 </div>
-                                {errors.username && (
-                                    <p className="text-red-500/80 text-[10px] font-black uppercase tracking-wider mt-1 ml-2">{errors.username.message}</p>
+                                {errors.email && (
+                                    <p className="text-red-500/80 text-[10px] font-black uppercase tracking-wider mt-1 ml-2">{errors.email.message}</p>
                                 )}
+
                             </div>
 
                             <div className="space-y-1.5">

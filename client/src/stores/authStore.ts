@@ -5,8 +5,9 @@ import { authAPI } from '@/lib/api';
 interface User {
     id: string;
     name: string;
-    username: string;
+    email: string;
     company?: string;
+
 }
 
 interface AuthStore {
@@ -28,7 +29,7 @@ export const useAuthStore = create<AuthStore>()(
             loading: true,
             initializeAuth: async () => {
                 set({ loading: true });
-                
+
                 try {
                     const token = localStorage.getItem('token');
                     if (token) {
@@ -36,10 +37,10 @@ export const useAuthStore = create<AuthStore>()(
                         const response = await authAPI.getProfile();
                         // The server returns user data inside a 'data' property
                         if (response.data && response.data.success && response.data.data) {
-                            set({ 
-                                user: response.data.data, 
-                                token: token, 
-                                isAuthenticated: true 
+                            set({
+                                user: response.data.data,
+                                token: token,
+                                isAuthenticated: true
                             });
                         } else {
                             // Token exists but is invalid, clear it
