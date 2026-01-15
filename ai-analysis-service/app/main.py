@@ -43,9 +43,24 @@ if settings.langchain_api_key:
     os.environ["LANGCHAIN_API_KEY"] = settings.langchain_api_key
     os.environ["LANGCHAIN_PROJECT"] = settings.langchain_project
 
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Load heavy AI agents here, AFTER the server has likely bound to its port
+    print("🧠 Initializing AI Agents (lifespan startup)...")
+    app.state.workflow = ContractAnalysisWorkflow()
+    app.state.redlining_agent = RedliningAgent()
+    app.state.rag_agent = RAGAgent()
+    print("✅ AI Agents initialized and ready.")
+    yield
+    # Clean up if needed
+    print("👋 Shutting down AI Analysis Service...")
+
 app = FastAPI(
     title=settings.api_title,
-    version=settings.api_version
+    version=settings.api_version,
+    lifespan=lifespan
 )
 
 # CORS middleware
@@ -57,10 +72,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize workflow and agent
-workflow = ContractAnalysisWorkflow()
-redlining_agent = RedliningAgent()
-rag_agent = RAGAgent()
+# Helper to get agents from app state
+def get_workflow(): return app.state.workflow
+def get_redlining_agent(): return app.state.redlining_agent
+def get_rag_agent(): return app.state.rag_agent
+
 
 @app.get("/")
 async def root():
@@ -250,7 +266,7 @@ async def redline_contract(request: RedlineRequest):
             raise HTTPException(status_code=400, detail=f"File not found: {request.file_path}")
 
         # Apply redlining
-        redlined_path = redlining_agent.apply_replacement(
+        redlined_path = app.state.redlining_agent.apply_replacement(
             file_path,
             request.original_clause,
             request.alternative_clause
@@ -284,7 +300,7 @@ async def semantic_search(request: SearchRequest):
 @app.post("/chat/history", response_model=ChatHistoryResponse)
 async def chat_with_history(request: ChatHistoryRequest):
     """Answer questions based on contract history (RAG)"""
-    result = rag_agent.answer_question(
+    result = app.state.rag_agent.answer_question(
         query=request.message,
         user_id=request.user_id,
         limit=request.context_limit

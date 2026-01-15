@@ -3,7 +3,8 @@ import uuid
 from typing import List, Dict, Any, Optional
 import chromadb
 from chromadb.config import Settings
-from pymilvus import model
+# from pymilvus import model  # Moved to lazy loading in VectorStoreManager
+
 from app.config import settings
 
 class VectorStoreManager:
@@ -11,7 +12,7 @@ class VectorStoreManager:
     
     def __init__(self):
         self.provider = settings.vector_db_provider.lower()
-        self.embedding_fn = model.DefaultEmbeddingFunction()
+        self._embedding_fn = None
         self.client = None
         self.collection = None
         self.pinecone_index = None
@@ -20,6 +21,16 @@ class VectorStoreManager:
             self._init_pinecone()
         else:
             self._init_chroma()
+
+    @property
+    def embedding_fn(self):
+        """Lazy load the embedding function only when needed."""
+        if self._embedding_fn is None:
+            print("🚀 Loading embedding model (lazy-load)...")
+            from pymilvus import model
+            self._embedding_fn = model.DefaultEmbeddingFunction()
+        return self._embedding_fn
+
 
     def _init_chroma(self):
         try:
