@@ -29,6 +29,7 @@ from app.models.schemas import (
 
 from app.utils.vector_store import vector_store
 from app.tasks import process_contract_analysis # Direct import for free-tier sync execution
+from app.parsers.pdf_parser import PDFParser, DOCXParser
 from app.celery_app import celery_app 
 # from app.agents.rag_agent import RAGAgent # Moved to lazy import
 from fastapi.responses import FileResponse
