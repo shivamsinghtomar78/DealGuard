@@ -2,7 +2,8 @@
 
 import React, { useRef, useMemo, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { Points, PointMaterial, Bloom, EffectComposer } from '@react-three/drei';
+import { Points, PointMaterial } from '@react-three/drei';
+
 import * as THREE from 'three';
 
 interface RiskNode {

@@ -105,7 +105,8 @@ export default function RiskSurfacePage() {
                                         <div className="p-2 bg-white/5 rounded-lg">
                                             <Activity className="w-5 h-5 text-indigo-400" />
                                         </div>
-                                        <Badge variant={hoveredNode.riskScore >= 7 ? 'danger' : hoveredNode.riskScore >= 4 ? 'warning' : 'success'} className="px-2 py-0.5">
+                                        <Badge variant={hoveredNode.riskScore >= 7 ? 'critical' : hoveredNode.riskScore >= 4 ? 'warning' : 'success'} className="px-2 py-0.5">
+
                                             Score: {hoveredNode.riskScore}
                                         </Badge>
                                     </div>
