@@ -29,22 +29,36 @@ export const signup = async (req: Request, res: Response) => {
     try {
         const { name, email, password, company } = req.body;
 
+        console.log(`Signup attempt for: ${email}`);
+
         // Validation constraints
         const emailRegex = /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/;
         const emailValid = email && emailRegex.test(email);
-        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,20}$/;
+        // Simplified password requirements: min 8 chars, at least one letter and one number
+        const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*?&]{8,}$/;
         const passwordValid = password && passwordRegex.test(password);
 
-        if (!emailValid || !passwordValid) {
-            return res.status(411).json({ success: false, message: 'Invalid email or password format' });
+        if (!emailValid) {
+            console.log(`Signup failed: Invalid email format for ${email}`);
+            return res.status(411).json({ success: false, message: 'Invalid email format' });
+        }
+
+        if (!passwordValid) {
+            console.log(`Signup failed: Invalid password format`);
+            return res.status(411).json({
+                success: false,
+                message: 'Password must be at least 8 characters with at least one letter and one number'
+            });
         }
 
         const userExists = await User.findOne({ email });
         if (userExists) {
+            console.log(`Signup failed: User already exists - ${email}`);
             return res.status(403).json({ success: false, message: 'User already exists with this email' });
         }
 
         const user = await User.create({ name, email, password, company });
+        console.log(`Signup successful: ${email}`);
 
 
         const token = user.getSignedJwtToken();
@@ -61,7 +75,8 @@ export const signup = async (req: Request, res: Response) => {
 
         });
     } catch (error: any) {
-        res.status(500).json({ success: false, message: 'Server error' });
+        console.error('Signup error:', error);
+        res.status(500).json({ success: false, message: error.message || 'Server error' });
     }
 };
 
