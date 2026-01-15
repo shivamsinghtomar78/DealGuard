@@ -46,9 +46,12 @@ export const uploadAndAnalyze = async (req: AuthRequest, res: Response) => {
         });
 
         // Trigger Python AI service asynchronously
-        // Construct webhook URL - in production this should be a full URL
-        const webhookUrl = `${req.protocol}://${req.get('host')}/api/contracts/webhook/analysis`;
+        // Construct webhook URL - use SERVER_URL env var in production, or detect from request
+        const serverBaseUrl = process.env.SERVER_URL ||
+            `${process.env.NODE_ENV === 'production' ? 'https' : req.protocol}://${req.get('host')}`;
+        const webhookUrl = `${serverBaseUrl}/api/contracts/webhook/analysis`;
 
+        console.log(`Webhook URL: ${webhookUrl}`);
 
         // We don't await the full analysis result here anymore
         uploadFileForAnalysis(

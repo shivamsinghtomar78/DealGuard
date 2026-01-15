@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: dealguard-ai
+    runtime: python
+    region: oregon
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11"
+      # IMPORTANT: Set these in Render Dashboard
+      - key: MONGODB_URI
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: LLM_PROVIDER
+        value: gemini  # Use Gemini for better reliability on free tier
+      - key: OPENROUTER_API_KEY
+        sync: false
+      # Optional: LangSmith tracing
+      - key: LANGCHAIN_TRACING_V2
+        value: "false"

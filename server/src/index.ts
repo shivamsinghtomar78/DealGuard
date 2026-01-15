@@ -55,6 +55,9 @@ try {
 }
 
 // Middleware
+// Trust proxy headers (required for Render/Heroku to get correct req.protocol)
+app.set('trust proxy', 1);
+
 app.use((req, res, next) => {
   console.log(`${req.method} ${req.url}`);
   next();
