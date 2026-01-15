@@ -20,8 +20,8 @@ def get_llm(temperature=0.1, model=None):
             model=target_model,
             google_api_key=settings.gemini_api_key,
             temperature=temperature,
-            api_version="v1",
             convert_system_message_to_human=True
+
         ))
     elif primary_provider == "openai":
         llms.append(ChatOpenAI(

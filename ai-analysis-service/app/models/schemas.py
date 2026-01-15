@@ -12,6 +12,13 @@ class AgentLog(BaseModel):
     node: str
     data: Optional[Dict] = None
 
+class AnalysisTaskResponse(BaseModel):
+    task_id: str
+    analysis_id: str
+    status: str
+    message: str
+
+
 class RiskLevel(str, Enum):
     LOW = "low"
     MEDIUM = "medium"

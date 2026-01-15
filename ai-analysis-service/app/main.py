@@ -8,8 +8,11 @@ from app.models.schemas import (
     SearchRequest,
     SearchResponse,
     ChatHistoryRequest,
-    ChatHistoryResponse
+    ChatHistoryRequest,
+    ChatHistoryResponse,
+    AnalysisTaskResponse
 )
+
 from app.workflows.analysis_workflow import ContractAnalysisWorkflow
 from app.parsers.pdf_parser import PDFParser, DOCXParser
 from app.agents.redlining_agent import RedliningAgent
@@ -90,7 +93,8 @@ async def root():
 async def health_check():
     return {"status": "healthy", "timestamp": datetime.utcnow()}
 
-@app.post("/analyze/upload", response_model=ContractAnalysisResponse)
+@app.post("/analyze/upload", response_model=AnalysisTaskResponse)
+
 async def analyze_uploaded_contract(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
@@ -155,7 +159,8 @@ async def analyze_uploaded_contract(
     # Cleanup moved to Celery task to ensure file availability
 
 
-@app.post("/analyze/text")
+@app.post("/analyze/text", response_model=AnalysisTaskResponse)
+
 async def analyze_contract_text(request: ContractAnalysisRequest, background_tasks: BackgroundTasks):
     """Analyze contract from provided text or file path"""
     start_time = time.time()
