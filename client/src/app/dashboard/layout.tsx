@@ -3,7 +3,7 @@
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { useAuthStore } from '@/stores/authStore';
 import { useRouter } from 'next/navigation';
-import { Shield, Upload, FileText, LogOut, User, Menu, X, LayoutDashboard, Globe, BookOpen } from 'lucide-react';
+import { Shield, Upload, FileText, LogOut, User, Menu, X, BookOpen } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -26,8 +26,6 @@ export default function DashboardLayout({
     const navLinks = [
         { href: '/dashboard', label: 'Upload Contract', icon: Upload },
         { href: '/dashboard/contracts', label: 'My Contracts', icon: FileText },
-        { href: '/dashboard/intelligence', label: 'Contract Intelligence', icon: LayoutDashboard },
-        { href: '/dashboard/risk-surface', label: 'Risk Surface', icon: Globe },
         { href: '/blog', label: 'Legal Insights', icon: BookOpen },
     ];
 
