@@ -3,7 +3,7 @@
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { useAuthStore } from '@/stores/authStore';
 import { useRouter } from 'next/navigation';
-import { Shield, Upload, FileText, LogOut, User, Menu, X, LayoutDashboard, Globe, BookOpen, Activity } from 'lucide-react';
+import { Shield, Upload, FileText, LogOut, User, Menu, X, LayoutDashboard, Globe, BookOpen } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -28,7 +28,6 @@ export default function DashboardLayout({
         { href: '/dashboard/contracts', label: 'My Contracts', icon: FileText },
         { href: '/dashboard/intelligence', label: 'Contract Intelligence', icon: LayoutDashboard },
         { href: '/dashboard/risk-surface', label: 'Risk Surface', icon: Globe },
-        { href: '/dashboard/dev-health', label: 'Dev Health', icon: Activity },
         { href: '/blog', label: 'Legal Insights', icon: BookOpen },
     ];
 
@@ -106,8 +105,7 @@ export default function DashboardLayout({
                                             }`}
                                     >
                                         {isActive && (
-                                            <motion.div
-                                                layoutId="active-glow"
+                                            <div
                                                 className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-indigo-500 rounded-full shadow-[0_0_15px_rgba(79,70,229,0.8)]"
                                             />
                                         )}
