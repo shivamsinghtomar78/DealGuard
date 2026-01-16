@@ -9,7 +9,8 @@ class RiskAnalyzerAgent:
     """Agent to analyze risks in contract clauses"""
     
     def __init__(self):
-        self.llm_chain = get_reliable_json_llm(temperature=0.2)
+        # Use task-specific model for risk analysis (reliable model)
+        self.llm_chain = get_reliable_json_llm(temperature=0.2, task_type="risk_analysis")
     
     def analyze_clause_risk(self, clause: ClauseExtraction) -> RiskAssessment:
         """Analyze risk for a single clause"""

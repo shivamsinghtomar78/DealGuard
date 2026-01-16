@@ -11,8 +11,8 @@ class ClauseExtractorAgent:
     """Agent to extract and categorize contract clauses"""
     
     def __init__(self):
-        # Use a higher temperature for extraction but wrap in reliable JSON chain
-        self.llm_chain = get_reliable_json_llm(temperature=0.1)
+        # Use task-specific model routing for optimized extraction
+        self.llm_chain = get_reliable_json_llm(temperature=0.1, task_type="clause_extraction")
         
     def extract_clauses(self, contract_text: str) -> List[ClauseExtraction]:
         """Extract all clauses from contract"""

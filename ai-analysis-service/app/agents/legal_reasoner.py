@@ -8,7 +8,8 @@ class LegalReasonerAgent:
     """Provide legal reasoning and case law support"""
     
     def __init__(self):
-        self.llm = get_llm(temperature=0.2)
+        # Use intelligent model for deep legal reasoning
+        self.llm = get_llm(temperature=0.2, task_type="legal_reasoning")
     
     def generate_legal_reasoning(self, clause: ClauseExtraction, risk_explanation: str) -> LegalReasoning:
         """Generate comprehensive legal reasoning"""

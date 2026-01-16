@@ -3,10 +3,8 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-    Zap,
-    Search,
-    ShieldAlert,
     FileText,
+    ShieldAlert,
     Gavel,
     CheckCircle,
     Cpu,
@@ -43,16 +41,25 @@ const NODE_ORDER = [
     "extract_clauses",
     "analyze_risks",
     "generate_alternatives",
-    "legal_reasoning",
+    "apply_legal_reasoning",
     "calculate_risk_score",
     "generate_summary"
 ];
+
+const NODE_LABELS: Record<string, string> = {
+    "start": "Initialize",
+    "extract_clauses": "Extract",
+    "analyze_risks": "Analyze",
+    "generate_alternatives": "Alternatives",
+    "apply_legal_reasoning": "Reasoning",
+    "calculate_risk_score": "Score",
+    "generate_summary": "Summary"
+};
 
 export default function AgentVisualizer({ logs, isAnalyzing }: AgentVisualizerProps) {
     const [currentLogIndex, setCurrentLogIndex] = useState(0);
     const scrollRef = useRef<HTMLDivElement>(null);
 
-    // Simulate "playback" if analysis is done, or follow logs as they come
     useEffect(() => {
         if (!isAnalyzing && logs.length > 0) {
             const timer = setInterval(() => {
@@ -78,125 +85,131 @@ export default function AgentVisualizer({ logs, isAnalyzing }: AgentVisualizerPr
     if (!activeLog) return null;
 
     return (
-        <div className="relative w-full bg-[#050608] border border-white/5 rounded-[2rem] overflow-hidden shadow-2xl">
-            {/* Header / Status Bar */}
-            <div className="flex items-center justify-between px-6 py-4 bg-white/[0.02] border-b border-white/5">
-                <div className="flex items-center gap-3">
-                    <div className="relative">
-                        <Activity className="w-4 h-4 text-indigo-400 animate-pulse" />
-                        <div className="absolute inset-0 bg-indigo-500/20 blur-sm rounded-full animate-ping" />
-                    </div>
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
-                        Neural Orchestration Engine <span className="text-indigo-500 font-mono ml-2">v2.1.0-Elite</span>
-                    </span>
+        <div className="w-full bg-[#0d1117] border border-white/[0.06] rounded-2xl overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-3 border-b border-white/[0.06]">
+                <div className="flex items-center gap-2">
+                    <Activity className="w-3.5 h-3.5 text-indigo-400" />
+                    <span className="text-xs font-medium text-slate-400">AI Processing</span>
                 </div>
                 <div className="flex items-center gap-2">
-                    <div className={`w-1.5 h-1.5 rounded-full ${isAnalyzing ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'}`} />
-                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">
-                        {isAnalyzing ? 'Live Process' : 'Simulation Complete'}
+                    <div className={`w-1.5 h-1.5 rounded-full ${isAnalyzing ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400'}`} />
+                    <span className="text-[10px] text-slate-500">
+                        {isAnalyzing ? 'Processing' : 'Complete'}
                     </span>
                 </div>
             </div>
 
-            <div className="flex h-[300px]">
-                {/* Left Side: Node Visualization */}
-                <div className="w-1/3 border-r border-white/5 p-6 flex flex-col justify-between relative bg-[#0a0c10]">
-                    <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-transparent pointer-events-none" />
-
+            <div className="flex h-[260px]">
+                {/* Left: Step Indicators */}
+                <div className="w-40 border-r border-white/[0.06] p-4 flex flex-col gap-1 bg-[#0a0d12]">
                     {NODE_ORDER.map((node, idx) => {
                         const isActive = activeLog.node === node;
                         const isPast = NODE_ORDER.indexOf(activeLog.node) > idx;
-                        const Icon = AGENT_ICONS[activeLog.agent] || BrainCircuit;
 
                         return (
-                            <div key={node} className="relative flex items-center gap-4 group">
-                                {idx < NODE_ORDER.length - 1 && (
-                                    <div className={`absolute left-3 top-6 w-[1px] h-8 transition-colors duration-500 ${isPast ? 'bg-indigo-500/50' : 'bg-white/5'}`} />
-                                )}
-                                <div className={`relative z-10 w-6 h-6 rounded-full border flex items-center justify-center transition-all duration-500 ${isActive ? 'bg-indigo-600 border-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.5)] scale-110' :
-                                        isPast ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-white/5 border-white/10 text-slate-700'
-                                    }`}>
-                                    {isPast ? <CheckCircle className="w-3 h-3" /> : <div className="w-1.5 h-1.5 rounded-full bg-current" />}
+                            <div
+                                key={node}
+                                className={`
+                                    flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg transition-all duration-300
+                                    ${isActive ? 'bg-indigo-500/10' : ''}
+                                `}
+                            >
+                                <div className={`
+                                    w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-medium
+                                    transition-all duration-300
+                                    ${isActive
+                                        ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/30'
+                                        : isPast
+                                            ? 'bg-emerald-500/20 text-emerald-400'
+                                            : 'bg-white/[0.04] text-slate-600'
+                                    }
+                                `}>
+                                    {isPast ? <CheckCircle className="w-3 h-3" /> : idx + 1}
                                 </div>
-                                <span className={`text-[10px] font-black uppercase tracking-widest transition-colors duration-500 ${isActive ? 'text-white' : isPast ? 'text-slate-400' : 'text-slate-700'
-                                    }`}>
-                                    {node.replace(/_/g, ' ')}
+                                <span className={`
+                                    text-[11px] font-medium transition-colors duration-300
+                                    ${isActive ? 'text-white' : isPast ? 'text-slate-400' : 'text-slate-600'}
+                                `}>
+                                    {NODE_LABELS[node] || node}
                                 </span>
-
-                                {isActive && (
-                                    <motion.div
-                                        layoutId="glow"
-                                        className="absolute -inset-2 bg-indigo-500/10 blur-md rounded-xl"
-                                    />
-                                )}
                             </div>
                         );
                     })}
                 </div>
 
-                {/* Right Side: Thought Stream */}
-                <div className="flex-1 flex flex-col bg-black/40">
+                {/* Right: Log Stream */}
+                <div className="flex-1 flex flex-col">
                     <div
                         ref={scrollRef}
-                        className="flex-1 p-6 overflow-y-auto custom-scrollbar space-y-4 font-mono text-xs"
+                        className="flex-1 p-4 overflow-y-auto space-y-2"
                     >
                         {logs.slice(0, currentLogIndex + 1).map((log, i) => (
                             <motion.div
                                 key={i}
-                                initial={{ opacity: 0, x: 10 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                className={`p-4 rounded-2xl border transition-all ${i === currentLogIndex ? 'bg-indigo-500/10 border-indigo-500/30' : 'bg-white/[0.02] border-white/5 opacity-40'
-                                    }`}
+                                initial={{ opacity: 0, y: 5 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className={`
+                                    p-3 rounded-xl border transition-all
+                                    ${i === currentLogIndex
+                                        ? 'bg-indigo-500/[0.08] border-indigo-500/20'
+                                        : 'bg-white/[0.02] border-transparent opacity-50'
+                                    }
+                                `}
                             >
-                                <div className="flex items-center justify-between mb-2">
-                                    <div className="flex items-center gap-2">
-                                        <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-tighter ${i === currentLogIndex ? 'bg-indigo-500 text-white' : 'bg-slate-800 text-slate-400'
-                                            }`}>
-                                            {log.agent}
-                                        </span>
-                                        <span className="text-slate-600">→</span>
-                                        <span className="text-[10px] text-indigo-400 font-bold uppercase">{log.action}</span>
-                                    </div>
-                                    <span className="text-[8px] text-slate-700">{new Date(log.timestamp).toLocaleTimeString()}</span>
+                                <div className="flex items-center gap-2 mb-1">
+                                    <span className={`
+                                        px-1.5 py-0.5 rounded text-[9px] font-semibold
+                                        ${i === currentLogIndex ? 'bg-indigo-500 text-white' : 'bg-slate-800 text-slate-400'}
+                                    `}>
+                                        {log.agent}
+                                    </span>
+                                    <span className="text-slate-600 text-[10px]">→</span>
+                                    <span className="text-[10px] text-indigo-400 font-medium">{log.action}</span>
+                                    <span className="text-[9px] text-slate-700 ml-auto">
+                                        {new Date(log.timestamp).toLocaleTimeString()}
+                                    </span>
                                 </div>
-                                <p className={`leading-relaxed ${i === currentLogIndex ? 'text-slate-200' : 'text-slate-500'}`}>
+                                <p className={`text-xs leading-relaxed ${i === currentLogIndex ? 'text-slate-300' : 'text-slate-500'}`}>
                                     {log.message}
                                 </p>
                             </motion.div>
                         ))}
                     </div>
 
-                    {/* Active Intelligence Indicator */}
+                    {/* Active Agent Footer */}
                     <AnimatePresence mode="wait">
                         <motion.div
                             key={activeLog.agent}
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -10 }}
-                            className="px-6 py-4 bg-indigo-600/10 border-t border-indigo-500/20 flex items-center justify-between"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="px-4 py-3 bg-indigo-500/[0.06] border-t border-indigo-500/10 flex items-center justify-between"
                         >
-                            <div className="flex items-center gap-4">
-                                <div className="w-10 h-10 rounded-xl bg-indigo-500 flex items-center justify-center text-white shadow-lg">
+                            <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-lg bg-indigo-500 flex items-center justify-center text-white">
                                     {(() => {
                                         const Icon = AGENT_ICONS[activeLog.agent] || BrainCircuit;
-                                        return <Icon className="w-5 h-5" />;
+                                        return <Icon className="w-4 h-4" />;
                                     })()}
                                 </div>
                                 <div>
-                                    <p className="text-[10px] font-black text-white uppercase tracking-[0.2em]">{activeLog.agent}</p>
-                                    <p className="text-[9px] text-indigo-400 font-mono">{activeLog.action.toUpperCase()} PHASE ACTIVE</p>
+                                    <p className="text-xs font-semibold text-white">{activeLog.agent}</p>
+                                    <p className="text-[10px] text-indigo-400">{activeLog.action}</p>
                                 </div>
                             </div>
-                            <div className="flex gap-1">
-                                {[1, 2, 3].map(i => (
-                                    <motion.div
-                                        key={i}
-                                        animate={{ scaleY: [1, 1.5, 1], opacity: [0.5, 1, 0.5] }}
-                                        transition={{ duration: 1, repeat: Infinity, delay: i * 0.2 }}
-                                        className="w-0.5 h-3 bg-indigo-400 rounded-full"
-                                    />
-                                ))}
-                            </div>
+                            {isAnalyzing && (
+                                <div className="flex gap-0.5">
+                                    {[1, 2, 3].map(i => (
+                                        <motion.div
+                                            key={i}
+                                            animate={{ scaleY: [1, 1.5, 1] }}
+                                            transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.15 }}
+                                            className="w-0.5 h-3 bg-indigo-400 rounded-full"
+                                        />
+                                    ))}
+                                </div>
+                            )}
                         </motion.div>
                     </AnimatePresence>
                 </div>

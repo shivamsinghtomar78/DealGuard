@@ -10,7 +10,11 @@ import {
     ArrowRight,
     TrendingUp,
     Tag,
-    Search
+    PenLine,
+    User,
+    Sparkles,
+    Search,
+    FileText
 } from 'lucide-react';
 
 interface BlogPost {
@@ -24,6 +28,7 @@ interface BlogPost {
         name: string;
         role: string;
     };
+    authorType?: 'ai' | 'user';
     readTime: number;
     views: number;
     publishedAt: string;
@@ -35,6 +40,21 @@ export default function BlogPage() {
     const [categories, setCategories] = useState<string[]>([]);
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [isLoggedIn, setIsLoggedIn] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+
+    // Filter posts by search query
+    const filteredPosts = posts.filter(post =>
+        searchQuery === '' ||
+        post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        post.excerpt.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+    useEffect(() => {
+        // Check if user is logged in
+        const token = localStorage.getItem('token');
+        setIsLoggedIn(!!token);
+    }, []);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -92,7 +112,7 @@ export default function BlogPage() {
                         transition={{ delay: 0.1 }}
                         className="text-5xl md:text-6xl font-black tracking-tight"
                     >
-                        Hot Legal <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">Insights</span>
+                        Legal <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">Insights</span>
                     </motion.h1>
 
                     <motion.p
@@ -101,8 +121,24 @@ export default function BlogPage() {
                         transition={{ delay: 0.2 }}
                         className="text-lg text-slate-400 max-w-2xl mx-auto"
                     >
-                        AI-powered analysis of trending legal topics, contract strategies, and compliance updates.
+                        Legal analysis, contract strategies, and community insights.
                     </motion.p>
+
+                    {/* Write Post Button */}
+                    {isLoggedIn && (
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.3 }}
+                        >
+                            <Link href="/dashboard/blog/create">
+                                <button className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl font-semibold transition-colors">
+                                    <PenLine className="w-4 h-4" />
+                                    Write a Post
+                                </button>
+                            </Link>
+                        </motion.div>
+                    )}
                 </div>
             </div>
 
@@ -112,8 +148,8 @@ export default function BlogPage() {
                     <button
                         onClick={() => setSelectedCategory(null)}
                         className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${!selectedCategory
-                                ? 'bg-indigo-500 text-white'
-                                : 'bg-white/5 text-slate-400 hover:bg-white/10'
+                            ? 'bg-indigo-500 text-white'
+                            : 'bg-white/5 text-slate-400 hover:bg-white/10'
                             }`}
                     >
                         All Topics
@@ -123,13 +159,25 @@ export default function BlogPage() {
                             key={cat}
                             onClick={() => setSelectedCategory(cat)}
                             className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${selectedCategory === cat
-                                    ? 'bg-indigo-500 text-white'
-                                    : 'bg-white/5 text-slate-400 hover:bg-white/10'
+                                ? 'bg-indigo-500 text-white'
+                                : 'bg-white/5 text-slate-400 hover:bg-white/10'
                                 }`}
                         >
                             {cat}
                         </button>
                     ))}
+                </div>
+
+                {/* Search Bar */}
+                <div className="relative max-w-md mb-8">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                    <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Search posts..."
+                        className="w-full pl-11 pr-4 py-3 bg-[#0d1117] border border-white/[0.06] rounded-xl text-white placeholder:text-slate-600 focus:outline-none focus:border-indigo-500/50 transition-colors"
+                    />
                 </div>
 
                 <div className="grid lg:grid-cols-3 gap-8">
@@ -139,9 +187,17 @@ export default function BlogPage() {
                             <div className="text-center py-20 bg-white/[0.02] rounded-3xl border border-white/5">
                                 <BookOpen className="w-16 h-16 text-slate-700 mx-auto mb-4" />
                                 <p className="text-slate-500">No posts found. Check back soon!</p>
+                                {isLoggedIn && (
+                                    <Link href="/dashboard/blog/create">
+                                        <button className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-indigo-500/10 text-indigo-400 rounded-lg text-sm font-medium hover:bg-indigo-500/20 transition-colors">
+                                            <PenLine className="w-4 h-4" />
+                                            Be the first to write
+                                        </button>
+                                    </Link>
+                                )}
                             </div>
                         ) : (
-                            posts.map((post, idx) => (
+                            filteredPosts.map((post, idx) => (
                                 <motion.div
                                     key={post._id}
                                     initial={{ opacity: 0, y: 20 }}
@@ -171,8 +227,16 @@ export default function BlogPage() {
 
                                                     <div className="flex items-center justify-between pt-4 border-t border-white/5">
                                                         <div className="flex items-center gap-3">
-                                                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-xs font-bold">
-                                                                AI
+                                                            {/* Author badge - different for AI vs User */}
+                                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${post.authorType === 'user'
+                                                                ? 'bg-gradient-to-br from-emerald-500 to-teal-500'
+                                                                : 'bg-gradient-to-br from-indigo-500 to-purple-500'
+                                                                }`}>
+                                                                {post.authorType === 'user' ? (
+                                                                    <User className="w-4 h-4 text-white" />
+                                                                ) : (
+                                                                    <Sparkles className="w-4 h-4 text-white" />
+                                                                )}
                                                             </div>
                                                             <div>
                                                                 <p className="text-xs font-bold text-white">{post.author.name}</p>
@@ -197,6 +261,20 @@ export default function BlogPage() {
 
                     {/* Sidebar */}
                     <div className="space-y-8">
+                        {/* Write Post CTA for logged-in users */}
+                        {isLoggedIn && (
+                            <div className="bg-gradient-to-br from-indigo-600 to-purple-600 rounded-3xl p-6 text-center">
+                                <PenLine className="w-10 h-10 text-white/80 mx-auto mb-3" />
+                                <h3 className="text-lg font-bold text-white mb-2">Share Your Insights</h3>
+                                <p className="text-sm text-indigo-200 mb-4">Write about legal topics and help the community.</p>
+                                <Link href="/dashboard/blog/create">
+                                    <button className="w-full py-3 bg-white text-indigo-600 font-bold rounded-xl hover:bg-indigo-50 transition-colors">
+                                        Start Writing
+                                    </button>
+                                </Link>
+                            </div>
+                        )}
+
                         {/* Trending Posts */}
                         <div className="bg-[#13171f] rounded-3xl border border-white/5 p-6">
                             <div className="flex items-center gap-2 mb-6">
@@ -236,17 +314,6 @@ export default function BlogPage() {
                                     </span>
                                 ))}
                             </div>
-                        </div>
-
-                        {/* CTA */}
-                        <div className="bg-gradient-to-br from-indigo-600 to-purple-600 rounded-3xl p-6 text-center">
-                            <h3 className="text-lg font-bold text-white mb-2">Analyze Your Contracts</h3>
-                            <p className="text-sm text-indigo-200 mb-4">Get AI-powered risk assessment in seconds.</p>
-                            <Link href="/dashboard/upload">
-                                <button className="w-full py-3 bg-white text-indigo-600 font-bold rounded-xl hover:bg-indigo-50 transition-colors">
-                                    Try DealGuard Free
-                                </button>
-                            </Link>
                         </div>
                     </div>
                 </div>

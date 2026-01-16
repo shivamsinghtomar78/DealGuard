@@ -170,24 +170,7 @@ export default function BlogPostPage() {
                     </div>
                 </div>
 
-                {/* CTA */}
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.4 }}
-                    className="mt-12 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-3xl p-10 text-center"
-                >
-                    <BookOpen className="w-12 h-12 text-white/80 mx-auto mb-4" />
-                    <h3 className="text-2xl font-bold text-white mb-2">Ready to Analyze Your Contracts?</h3>
-                    <p className="text-indigo-200 mb-6 max-w-md mx-auto">
-                        Get AI-powered risk assessment, clause extraction, and alternative suggestions in seconds.
-                    </p>
-                    <Link href="/dashboard/upload">
-                        <button className="px-8 py-4 bg-white text-indigo-600 font-bold rounded-xl hover:bg-indigo-50 transition-colors">
-                            Start Free Analysis
-                        </button>
-                    </Link>
-                </motion.div>
+
             </div>
         </div>
     );

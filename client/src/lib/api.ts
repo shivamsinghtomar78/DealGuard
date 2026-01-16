@@ -94,4 +94,31 @@ export const searchAPI = {
         apiClient.post('/search/history-chat', { message, contextLimit }),
 };
 
+// Blog endpoints
+export const blogAPI = {
+    getAllPosts: (params?: { category?: string; page?: number; limit?: number }) =>
+        apiClient.get('/blog/posts', { params }),
+
+    getPost: (slug: string) =>
+        apiClient.get(`/blog/posts/${slug}`),
+
+    getFeaturedPosts: () =>
+        apiClient.get('/blog/posts/featured'),
+
+    getCategories: () =>
+        apiClient.get('/blog/categories'),
+
+    getMyPosts: () =>
+        apiClient.get('/blog/posts/my'),
+
+    createPost: (data: { title: string; excerpt: string; content: string; category: string; tags?: string[]; isPublished?: boolean }) =>
+        apiClient.post('/blog/posts', data),
+
+    updatePost: (id: string, data: { title?: string; excerpt?: string; content?: string; category?: string; tags?: string[]; isPublished?: boolean }) =>
+        apiClient.put(`/blog/posts/${id}`, data),
+
+    deletePost: (id: string) =>
+        apiClient.delete(`/blog/posts/${id}`),
+};
+
 export default apiClient;

@@ -9,14 +9,18 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: "3.11"
-      # IMPORTANT: Set these in Render Dashboard
+      # MongoDB
       - key: MONGODB_URI
         sync: false
-      - key: GEMINI_API_KEY
-        sync: false
+      # AI Provider - Use OpenRouter for multi-model support
       - key: LLM_PROVIDER
-        value: gemini  # Use Gemini for better reliability on free tier
+        value: openrouter
       - key: OPENROUTER_API_KEY
+        sync: false
+      - key: OPENROUTER_MODEL
+        value: xiaomi/mimo-v2-flash:free
+      # Fallback to Gemini if needed
+      - key: GEMINI_API_KEY
         sync: false
       # Optional: LangSmith tracing
       - key: LANGCHAIN_TRACING_V2

@@ -8,7 +8,8 @@ class AlternativeGeneratorAgent:
     """Generate alternative clause language"""
     
     def __init__(self):
-        self.llm = get_llm(temperature=0.3)
+        # Use generation-optimized model
+        self.llm = get_llm(temperature=0.3, task_type="alternative_generation")
     
     def generate_alternatives(self, clause: ClauseExtraction, risk_level: str) -> AlternativeClause:
         """Generate three alternative versions of a clause"""

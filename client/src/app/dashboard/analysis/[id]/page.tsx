@@ -229,23 +229,32 @@ export default function AnalysisPage() {
 
     if (isLoading || isAnalyzing) {
         return (
-            <div className="flex h-[80vh] flex-col items-center justify-center space-y-8 bg-[#0a0c10] p-8">
-                <div className="relative">
-                    <div className="w-20 h-20 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" />
-                    <div className="absolute inset-0 flex items-center justify-center">
-                        <Zap className="w-8 h-8 text-indigo-500 animate-pulse" />
+            <div className="min-h-screen bg-[#0a0c10] pt-16">
+                <div className="max-w-4xl mx-auto px-8 py-12">
+                    {/* Header */}
+                    <div className="text-center mb-10">
+                        <div className="inline-flex items-center gap-3 mb-4">
+                            <div className="relative">
+                                <div className="w-10 h-10 border-2 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin" />
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                    <Zap className="w-4 h-4 text-indigo-500" />
+                                </div>
+                            </div>
+                            <h1 className="text-xl font-semibold text-white">Analyzing Contract</h1>
+                        </div>
+                        <p className="text-sm text-slate-500">
+                            {analysis?.contractFileName || 'Processing your document...'}
+                        </p>
                     </div>
-                </div>
-                <div className="max-w-3xl w-full space-y-8">
-                    <AnalysisGauges
-                        completedNodes={(analysis?.agentLogs || []).filter(l => l.action === 'completed').map(l => l.node)}
-                        activeNode={(analysis?.agentLogs || []).find(l => l.action === 'extracting' || l.action === 'analyzing' || l.action === 'generating' || l.action === 'reasoning')?.node || 'extract_clauses'}
-                    />
-                    <AgentVisualizer logs={analysis?.agentLogs || []} isAnalyzing={true} />
-                </div>
-                <div className="text-center space-y-2">
-                    <h2 className="text-xl font-bold text-white tracking-widest uppercase">Deep Analysis in Progress</h2>
-                    <p className="text-indigo-400/60 font-mono text-xs">Parsing legal vectors • Synthesizing risk nodes</p>
+
+                    {/* Progress Section */}
+                    <div className="space-y-6">
+                        <AnalysisGauges
+                            completedNodes={(analysis?.agentLogs || []).filter(l => l.action === 'completed').map(l => l.node)}
+                            activeNode={(analysis?.agentLogs || []).find(l => l.action === 'extracting' || l.action === 'analyzing' || l.action === 'generating' || l.action === 'reasoning')?.node || 'extract_clauses'}
+                        />
+                        <AgentVisualizer logs={analysis?.agentLogs || []} isAnalyzing={true} />
+                    </div>
                 </div>
             </div>
         );
@@ -279,9 +288,9 @@ export default function AnalysisPage() {
                             <ArrowLeft className="w-5 h-5" />
                         </button>
                         <div>
-                            <h1 className="text-xl font-black tracking-tight text-white flex items-center gap-3">
-                                <span className="bg-gradient-to-r from-indigo-400 to-fuchsia-400 bg-clip-text text-transparent">
-                                    Analysis Intelligence
+                            <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-3">
+                                <span className="text-white">
+                                    Contract Analysis
                                 </span>
                                 <Badge variant="outline" className="text-[10px] border-white/10 text-slate-500 font-mono">
                                     {analysis.contractFileName}
@@ -299,14 +308,14 @@ export default function AnalysisPage() {
                             <BrainCircuit className="w-4 h-4" /> {showVisualizer ? 'Hide Thoughts' : 'Agent Thoughts'}
                         </Button>
                         <Button variant="outline" className="bg-white/5 border-white/10 hover:bg-white/10 text-white rounded-xl gap-2 h-10 px-4 text-xs shadow-2xl">
-                            <Download className="w-3 h-3" /> Export Intel
+                            <Download className="w-3 h-3" /> Export Report
                         </Button>
                         <Button
                             className="bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl shadow-[0_0_20px_rgba(79,70,229,0.3)] gap-2 h-10 px-6 text-xs"
                             onClick={handleExportToDocuSign}
                             disabled={isExporting}
                         >
-                            {isExporting ? <Loader size="xs" /> : <><Share2 className="w-3 h-3" /> Deploy Access</>}
+                            {isExporting ? <Loader size="xs" /> : <><Share2 className="w-3 h-3" /> Send to DocuSign</>}
                         </Button>
                     </div>
                 </div>
@@ -343,7 +352,7 @@ export default function AnalysisPage() {
                             <div className="grid grid-cols-2 gap-4">
                                 <Card className="bg-[#13171f] border-white/5 p-6 rounded-3xl flex items-center justify-between group">
                                     <div>
-                                        <p className="text-[10px] font-black text-indigo-400/60 uppercase tracking-[0.2em] mb-1">Risk Decile</p>
+                                        <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Risk Score</p>
                                         <p className="text-4xl font-black text-white tracking-tighter tabular-nums">{riskScore}</p>
                                     </div>
                                     <div className="relative w-16 h-16">
@@ -358,9 +367,9 @@ export default function AnalysisPage() {
                                     </div>
                                 </Card>
                                 <Card className="bg-[#13171f] border-white/5 p-6 rounded-3xl group">
-                                    <p className="text-[10px] font-black text-indigo-400/60 uppercase tracking-[0.2em] mb-3">Strategic Disposition</p>
-                                    <div className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest inline-block ${riskScore >= 7 ? 'bg-rose-500/20 text-rose-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
-                                        {riskScore >= 7 ? 'Critical Phase' : 'Nominal Status'}
+                                    <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-3">Assessment</p>
+                                    <div className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase inline-block ${riskScore >= 7 ? 'bg-rose-500/20 text-rose-400' : riskScore >= 4 ? 'bg-amber-500/20 text-amber-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
+                                        {riskScore >= 7 ? 'High Risk' : riskScore >= 4 ? 'Medium Risk' : 'Low Risk'}
                                     </div>
                                 </Card>
                             </div>
@@ -368,7 +377,7 @@ export default function AnalysisPage() {
                             {/* Executive Summary Mini */}
                             {executiveSummary && (
                                 <Card className="bg-indigo-500/5 border-indigo-500/20 p-6 rounded-3xl">
-                                    <div className="flex items-center gap-2 text-indigo-400 font-black text-[10px] uppercase tracking-widest mb-4">
+                                    <div className="flex items-center gap-2 text-indigo-400 font-semibold text-xs uppercase tracking-wide mb-4">
                                         <Zap className="w-3 h-3" /> Synthesis
                                     </div>
                                     <p className="text-sm text-slate-400 leading-relaxed italic">{executiveSummary.substring(0, 200)}...</p>
@@ -377,8 +386,8 @@ export default function AnalysisPage() {
 
                             {/* Discovery Stream */}
                             <div className="space-y-6">
-                                <h2 className="text-sm font-black text-white uppercase tracking-[0.3em] flex items-center gap-3">
-                                    Discovery Stream
+                                <h2 className="text-sm font-bold text-white uppercase tracking-wide flex items-center gap-3">
+                                    Flagged Clauses
                                     <span className="h-[1px] flex-1 bg-white/5" />
                                 </h2>
 
@@ -414,10 +423,10 @@ export default function AnalysisPage() {
                                                     <div className="flex justify-between items-start gap-8">
                                                         <div className="space-y-6 flex-1">
                                                             <div className="flex items-center gap-4">
-                                                                <div className={`px-4 py-1.5 rounded-full text-[10px] font-black tracking-[0.2em] uppercase border ${styles.bg} ${styles.color} ${styles.border}`}>
-                                                                    {(risk.riskLevel || risk.risk_level || 'medium').toUpperCase()} Criticality
+                                                                <div className={`px-4 py-1.5 rounded-full text-[10px] font-bold tracking-wide uppercase border ${styles.bg} ${styles.color} ${styles.border}`}>
+                                                                    {(risk.riskLevel || risk.risk_level || 'medium').toUpperCase()} RISK
                                                                 </div>
-                                                                <span className="text-[10px] font-mono text-slate-600 uppercase">Vector ID: CL-{idx + 1}</span>
+                                                                <span className="text-[10px] font-medium text-slate-600">Clause #{idx + 1}</span>
                                                             </div>
 
                                                             {/* High Fidelity Clause Display */}
@@ -435,12 +444,12 @@ export default function AnalysisPage() {
                                                     <div className="mt-10 pt-8 border-t border-white/5 flex items-center justify-between">
                                                         <div className="flex items-center gap-8">
                                                             <div className="space-y-1">
-                                                                <span className="text-[10px] font-black text-slate-600 uppercase tracking-tighter">Exposure Map</span>
-                                                                <p className="text-xs font-bold text-slate-400">Analysis verified via Neural Engine V3</p>
+                                                                <span className="text-[10px] font-medium text-slate-600">Identified Issue</span>
+                                                                <p className="text-xs text-slate-400">Click to view details and suggested fix</p>
                                                             </div>
                                                         </div>
                                                         <button className="flex items-center gap-2 text-indigo-400 hover:text-white transition-all font-black text-[10px] uppercase tracking-[0.2em]">
-                                                            {isExpanded ? 'Collapse Intel' : 'Expand Intelligence'}
+                                                            {isExpanded ? 'Show Less' : 'View Details'}
                                                             {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                                                         </button>
                                                     </div>
@@ -458,8 +467,8 @@ export default function AnalysisPage() {
                                                                 <div className="grid md:grid-cols-2 gap-10">
                                                                     {/* Expert Assessment */}
                                                                     <div className="space-y-4">
-                                                                        <div className="flex items-center gap-2 text-indigo-400 font-black text-[10px] uppercase tracking-widest">
-                                                                            <Zap className="w-3 h-3" /> Technical Analysis
+                                                                        <div className="flex items-center gap-2 text-indigo-400 font-semibold text-xs uppercase tracking-wide">
+                                                                            <Zap className="w-3 h-3" /> Risk Analysis
                                                                         </div>
                                                                         <div className="bg-[#13171f] p-8 rounded-[2rem] border border-white/5 shadow-inner">
                                                                             <p className="text-sm leading-[1.8] text-slate-400 font-medium">
@@ -470,8 +479,8 @@ export default function AnalysisPage() {
 
                                                                     {/* Legal reasoning */}
                                                                     <div className="space-y-4">
-                                                                        <div className="flex items-center gap-2 text-purple-400 font-black text-[10px] uppercase tracking-widest">
-                                                                            <Gavel className="w-3 h-3" /> Jurisprudence Root
+                                                                        <div className="flex items-center gap-2 text-purple-400 font-semibold text-xs uppercase tracking-wide">
+                                                                            <Gavel className="w-3 h-3" /> Legal Context
                                                                         </div>
                                                                         <div className="bg-[#13171f] p-8 rounded-[2rem] border border-white/5 shadow-inner">
                                                                             <p className="text-sm leading-[1.8] text-slate-400 font-medium whitespace-pre-wrap italic">
@@ -496,8 +505,8 @@ export default function AnalysisPage() {
                                                                                         <ShieldCheck className="w-6 h-6 text-emerald-400" />
                                                                                     </div>
                                                                                     <div className="space-y-1">
-                                                                                        <h4 className="text-emerald-400 font-black text-xs uppercase tracking-[0.2em]">De-Risked Protocol</h4>
-                                                                                        <p className="text-[10px] text-slate-500 font-mono">Industry Consensus Standard</p>
+                                                                                        <h4 className="text-emerald-400 font-bold text-xs uppercase tracking-wide">Suggested Alternative</h4>
+                                                                                        <p className="text-[10px] text-slate-500">Industry standard wording</p>
                                                                                     </div>
                                                                                 </div>
                                                                                 <Button
@@ -558,7 +567,8 @@ export default function AnalysisPage() {
                             {analysis.riskAssessments.length === 0 && (
                                 <div className="flex flex-col items-center justify-center p-20 bg-[#13171f] rounded-[3rem] border border-white/5 space-y-6">
                                     <ShieldCheck className="w-20 h-20 text-emerald-500 opacity-40" />
-                                    <h3 className="text-xl font-black text-white uppercase tracking-widest italic text-center">Aura Protocol Verified</h3>
+                                    <h3 className="text-xl font-bold text-white text-center">No Issues Found</h3>
+                                    <p className="text-slate-500 text-center">This contract appears to be low risk.</p>
                                 </div>
                             )}
                         </div>

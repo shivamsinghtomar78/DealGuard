@@ -8,8 +8,8 @@ class SummarizerAgent:
     """Agent to generate a comprehensive executive summary of contract risks"""
     
     def __init__(self):
-        # Use a slightly lower temperature for consistent professional tone
-        self.llm = get_llm(temperature=0.1)
+        # Use fast model for quick summary generation
+        self.llm = get_llm(temperature=0.1, task_type="summary")
     
     def generate_summary(self, risk_assessments: List[RiskAssessment], overall_score: float) -> str:
         """Generate a detailed executive summary based on findings"""

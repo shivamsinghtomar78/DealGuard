@@ -49,15 +49,15 @@ class ContractAnalysisWorkflow:
         workflow.add_node("extract_clauses", self.extract_clauses)
         workflow.add_node("analyze_risks", self.analyze_risks)
         workflow.add_node("generate_alternatives", self.generate_alternatives)
-        workflow.add_node("legal_reasoning", self.legal_reasoning)
+        workflow.add_node("apply_legal_reasoning", self.apply_legal_reasoning)
         workflow.add_node("calculate_risk_score", self.calculate_risk_score)
         workflow.add_node("generate_summary", self.generate_summary)
         
         # Define edges with error checking
         workflow.add_edge("extract_clauses", "analyze_risks")
         workflow.add_edge("analyze_risks", "generate_alternatives")
-        workflow.add_edge("generate_alternatives", "legal_reasoning")
-        workflow.add_edge("legal_reasoning", "calculate_risk_score")
+        workflow.add_edge("generate_alternatives", "apply_legal_reasoning")
+        workflow.add_edge("apply_legal_reasoning", "calculate_risk_score")
         workflow.add_edge("calculate_risk_score", "generate_summary")
         workflow.add_edge("generate_summary", END)
         
@@ -121,10 +121,10 @@ class ContractAnalysisWorkflow:
         
         return state
     
-    def legal_reasoning(self, state: AnalysisState) -> AnalysisState:
+    def apply_legal_reasoning(self, state: AnalysisState) -> AnalysisState:
         """Step 4: Generate legal reasoning"""
         try:
-            state["agent_logs"].append(AgentLog(agent="Legal Reasoner", action="reasoning", message="Mapping jurisdictional principles and enforceability...", node="legal_reasoning"))
+            state["agent_logs"].append(AgentLog(agent="Legal Reasoner", action="reasoning", message="Mapping jurisdictional principles and enforceability...", node="apply_legal_reasoning"))
             reasoning_list = []
             
             for risk in state["risk_assessments"]:
@@ -142,7 +142,7 @@ class ContractAnalysisWorkflow:
                                          f"Position: {reasoning.recommended_position}"
             
             state["legal_reasoning"] = reasoning_list
-            state["agent_logs"].append(AgentLog(agent="Legal Reasoner", action="completed", message="Jurisprudence mapping complete.", node="legal_reasoning"))
+            state["agent_logs"].append(AgentLog(agent="Legal Reasoner", action="completed", message="Jurisprudence mapping complete.", node="apply_legal_reasoning"))
             print(f"✅ Generated legal reasoning for {len(reasoning_list)} clauses and attached to risk assessments")
         except Exception as e:
             state["error"] = f"Legal reasoning failed: {str(e)}"
