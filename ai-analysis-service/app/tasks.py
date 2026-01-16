@@ -6,7 +6,6 @@ import uuid
 from app.celery_app import celery_app
 from app.workflows.analysis_workflow import ContractAnalysisWorkflow
 from app.parsers.pdf_parser import PDFParser, DOCXParser
-from app.utils.vector_store import vector_store
 
 def send_progress_update(webhook_url: str, contract_id: str, status: str, agent_logs: list = None, progress: int = 0):
     """Send a progress update webhook to keep frontend updated"""
@@ -44,7 +43,7 @@ def process_contract_analysis(file_path, contract_id, category, user_id, webhook
     workflow = ContractAnalysisWorkflow()
     
     try:
-        # Step 1: Parse document (10%)
+        # Step 1: Parse document
         print(f"📄 Parsing document: {file_path}")
         if file_path.endswith('.pdf'):
             parser = PDFParser(file_path)
@@ -55,18 +54,25 @@ def process_contract_analysis(file_path, contract_id, category, user_id, webhook
         contract_text = extracted_data['full_text']
         print(f"✅ Extracted {len(contract_text)} characters")
         
-        # Step 2: Index in Vector Store (20%)
-        print(f"🔍 Indexing in vector store...")
-        vector_store.add_document(
-            contract_text, 
-            {
-                "contract_name": os.path.basename(file_path), 
-                "category": category,
-                "user_id": user_id,
-                "analysis_id": contract_id
-            }
-        )
-        print(f"✅ Vector store indexed")
+        # Step 2: Vector store indexing - OPTIONAL (skip on failure)
+        # This is non-critical for the main analysis flow
+        try:
+            print(f"🔍 Attempting vector store indexing (optional)...")
+            # Import lazily to avoid loading issues
+            from app.utils.vector_store import vector_store
+            vector_store.add_document(
+                contract_text, 
+                {
+                    "contract_name": os.path.basename(file_path), 
+                    "category": category,
+                    "user_id": user_id,
+                    "analysis_id": contract_id
+                }
+            )
+            print(f"✅ Vector store indexed")
+        except Exception as vs_error:
+            # Vector store is optional - don't block analysis
+            print(f"⚠️ Vector store skipped (non-critical): {str(vs_error)[:100]}")
         
         # Step 3: Run workflow (this is the main analysis)
         print(f"🧠 Starting AI analysis workflow...")
