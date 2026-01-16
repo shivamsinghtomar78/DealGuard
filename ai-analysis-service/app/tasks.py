@@ -45,18 +45,32 @@ def process_contract_analysis(file_path, contract_id, category, user_id, webhook
         
         processing_time = time.time() - start_time
         
-        # Prepare result payload
+        # Prepare result payload with enhanced fields
         payload = {
             "contract_id": contract_id,
             "status": "completed",
             "overall_risk_score": result["overall_risk_score"],
             "executive_summary": result["executive_summary"],
+            # Enhanced summary fields
+            "top_critical_issues": result.get("top_critical_issues", []),
+            "recommendation": result.get("recommendation", "negotiate"),
+            "recommendation_reasoning": result.get("recommendation_reasoning", ""),
+            "action_items": result.get("action_items", {}),
+            "risk_breakdown": result.get("risk_breakdown", {}),
+            # Risk assessments with enhanced fields
             "risk_assessments": [
                 {
                     "clause_id": ra.clause_id,
                     "clause_text": ra.clause_text,
                     "risk_level": ra.risk_level.value if hasattr(ra.risk_level, 'value') else ra.risk_level,
+                    "risk_type": ra.risk_type.value if hasattr(ra.risk_type, 'value') else getattr(ra, 'risk_type', 'legal'),
+                    "risk_category": ra.risk_category,
                     "risk_explanation": ra.risk_explanation,
+                    "potential_impact": ra.potential_impact,
+                    "worst_case_scenario": ra.worst_case_scenario,
+                    "financial_exposure": ra.financial_exposure or "",
+                    "estimated_loss_range": getattr(ra, 'estimated_loss_range', '') or "",
+                    "real_world_example": getattr(ra, 'real_world_example', '') or "",
                     "standard_alternative": ra.standard_alternative,
                     "legal_reasoning": ra.legal_reasoning
                 } for ra in result["risk_assessments"]

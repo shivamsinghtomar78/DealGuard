@@ -197,7 +197,22 @@ export const addRiskComment = async (req: AuthRequest, res: Response) => {
 
 export const handleAnalysisWebhook = async (req: Request, res: Response) => {
     try {
-        const { contract_id, status, overall_risk_score, executive_summary, risk_assessments, agent_logs, full_text, error } = req.body;
+        const {
+            contract_id,
+            status,
+            overall_risk_score,
+            executive_summary,
+            risk_assessments,
+            agent_logs,
+            full_text,
+            error,
+            // New enhanced fields
+            top_critical_issues,
+            recommendation,
+            recommendation_reasoning,
+            action_items,
+            risk_breakdown
+        } = req.body;
 
         console.log(`WebHook received for contract: ${contract_id}, status: ${status}`);
 
@@ -213,12 +228,19 @@ export const handleAnalysisWebhook = async (req: Request, res: Response) => {
             return res.status(200).json({ success: true });
         }
 
-        // Map AI result fields to camelCase
+        // Map AI result fields to camelCase with enhanced fields
         const mappedRiskAssessments = (risk_assessments || []).map((ra: any) => ({
             clauseId: ra.clause_id || ra.clauseId || `unknown_${Math.random().toString(36).substr(2, 9)}`,
-            clauseText: ra.clause_text || ra.clause_text || '',
+            clauseText: ra.clause_text || ra.clauseText || '',
             riskLevel: ra.risk_level || ra.riskLevel || 'medium',
+            riskType: ra.risk_type || ra.riskType || 'legal',
+            riskCategory: ra.risk_category || ra.riskCategory || '',
             riskExplanation: ra.risk_explanation || ra.riskExplanation || '',
+            potentialImpact: ra.potential_impact || ra.potentialImpact || '',
+            worstCaseScenario: ra.worst_case_scenario || ra.worstCaseScenario || '',
+            financialExposure: ra.financial_exposure || ra.financialExposure || '',
+            estimatedLossRange: ra.estimated_loss_range || ra.estimatedLossRange || '',
+            realWorldExample: ra.real_world_example || ra.realWorldExample || '',
             standardAlternative: ra.standard_alternative || ra.standardAlternative || '',
             legalReasoning: ra.legal_reasoning || ra.legalReasoning || ''
         }));
@@ -232,6 +254,13 @@ export const handleAnalysisWebhook = async (req: Request, res: Response) => {
             data: log.data
         }));
 
+        // Map action items from snake_case
+        const mappedActionItems = action_items ? {
+            mustFix: action_items.must_fix || action_items.mustFix || [],
+            shouldNegotiate: action_items.should_negotiate || action_items.shouldNegotiate || [],
+            niceToHave: action_items.nice_to_have || action_items.niceToHave || []
+        } : undefined;
+
         analysis.overallRiskScore = overall_risk_score || 0;
         analysis.riskAssessments = mappedRiskAssessments;
         analysis.aiSummary = executive_summary || '';
@@ -239,6 +268,13 @@ export const handleAnalysisWebhook = async (req: Request, res: Response) => {
         analysis.status = 'completed';
         analysis.completedAt = new Date();
         analysis.agentLogs = mappedAgentLogs;
+
+        // Enhanced summary fields
+        analysis.topCriticalIssues = top_critical_issues || [];
+        analysis.recommendation = recommendation || 'negotiate';
+        analysis.recommendationReasoning = recommendation_reasoning || '';
+        analysis.actionItems = mappedActionItems;
+        analysis.riskBreakdown = risk_breakdown || { financial: 0, legal: 0, operational: 0, reputational: 0 };
 
         await analysis.save();
 

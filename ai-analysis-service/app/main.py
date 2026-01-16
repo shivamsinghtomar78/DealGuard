@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException, BackgroundTasks
+from fastapi import FastAPI, UploadFile, File, HTTPException, BackgroundTasks, Form
 from fastapi.middleware.cors import CORSMiddleware
 import os
 from dotenv import load_dotenv
@@ -91,17 +91,23 @@ async def health_check():
     return {"status": "healthy", "timestamp": datetime.utcnow()}
 
 @app.post("/analyze/upload", response_model=AnalysisTaskResponse)
-
 async def analyze_uploaded_contract(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
-    contract_id: str = None,
-    category: str = "other",
-    user_id: str = "test_user",
-    webhook_url: str = None
+    contract_id: str = Form(None),
+    category: str = Form("other"),
+    user_id: str = Form("test_user"),
+    webhook_url: str = Form(None)
 ):
     """Upload and analyze a contract file"""
     start_time = time.time()
+    
+    # Debug logging
+    print(f"📥 Received upload request:")
+    print(f"   File: {file.filename}")
+    print(f"   Contract ID: {contract_id}")
+    print(f"   Category: {category}")
+    print(f"   Webhook URL: {webhook_url}")
     
     # Validate file type
     if not file.filename.endswith(('.pdf', '.docx', '.doc')):
@@ -117,6 +123,8 @@ async def analyze_uploaded_contract(
             content = await file.read()
             f.write(content)
         
+        print(f"📁 File saved to: {file_path}")
+        
         # Parse document
         if file.filename.endswith('.pdf'):
             parser = PDFParser(file_path)
@@ -126,16 +134,12 @@ async def analyze_uploaded_contract(
         extracted_data = parser.extract_text()
         contract_text = extracted_data['full_text']
         
-        # Index in ChromaDB
-        # Moved to background task in Celery worker if possible, 
-        # but keeping it here for immediate vector availability if needed or 
-        # let Celery handle it. Celery task already handles it.
+        print(f"📄 Extracted {len(contract_text)} characters of text")
         
         analysis_id = contract_id or str(uuid.uuid4())
         
-        # Trigger analysis synchronously in background (Free Tier / No Celery Mode)
-        # Using FastAPI's background_tasks runs this in the same process but after the response is sent.
-        # This saves memory vs running a separate worker.
+        # Trigger analysis in background
+        print(f"🚀 Starting background analysis for {analysis_id}")
         background_tasks.add_task(
             process_contract_analysis,
             file_path=file_path,
@@ -145,7 +149,6 @@ async def analyze_uploaded_contract(
             webhook_url=webhook_url
         )
         
-        # Keep task_id for backward compatibility
         task_id = str(uuid.uuid4())
         
         return {
@@ -159,7 +162,6 @@ async def analyze_uploaded_contract(
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
-    # Cleanup moved to Celery task to ensure file availability
 
 
 @app.post("/analyze/text", response_model=AnalysisTaskResponse)

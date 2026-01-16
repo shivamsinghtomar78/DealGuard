@@ -41,18 +41,44 @@ class ClauseExtraction(BaseModel):
     page_number: Optional[int] = None
     confidence_score: float = Field(ge=0.0, le=1.0, default=0.9)
 
+class RiskType(str, Enum):
+    FINANCIAL = "financial"
+    LEGAL = "legal"
+    OPERATIONAL = "operational"
+    REPUTATIONAL = "reputational"
+
 class RiskAssessment(BaseModel):
     clause_id: str
     clause_text: str
     risk_level: RiskLevel
+    risk_type: RiskType = RiskType.LEGAL  # NEW: Financial, Legal, Operational, Reputational
     risk_category: str
     risk_explanation: str
     potential_impact: str
     worst_case_scenario: str
     financial_exposure: Optional[str] = None
+    estimated_loss_range: Optional[str] = None  # NEW: e.g., "$50,000 - $500,000"
     mitigation_steps: List[str] = []
     legal_reasoning: Optional[str] = None
     standard_alternative: Optional[str] = None
+    real_world_example: Optional[str] = None  # NEW: Similar case example
+
+class ActionItems(BaseModel):
+    """Categorized action items for contract negotiation"""
+    must_fix: List[str] = []  # Critical issues that must be addressed before signing
+    should_negotiate: List[str] = []  # Important items to negotiate
+    nice_to_have: List[str] = []  # Optional improvements
+
+class EnhancedSummary(BaseModel):
+    """Structured executive summary with actionable insights"""
+    overall_assessment: str  # Brief overall assessment
+    top_critical_issues: List[str] = []  # Top 3 critical issues
+    recommendation: str = "negotiate"  # approve, negotiate, reject
+    recommendation_reasoning: str = ""  # Why this recommendation
+    action_items: ActionItems = ActionItems()
+    total_clauses_analyzed: int = 0
+    risky_clauses_count: int = 0
+    risk_breakdown: Dict[str, int] = {}  # e.g., {"financial": 2, "legal": 3}
 
 class AlternativeClause(BaseModel):
     original_clause_id: str

@@ -1,7 +1,7 @@
 from app.utils.llm_factory import get_llm, get_reliable_json_llm
 from langchain_core.prompts import ChatPromptTemplate
 from typing import List
-from app.models.schemas import RiskAssessment, RiskLevel, ClauseExtraction
+from app.models.schemas import RiskAssessment, RiskLevel, RiskType, ClauseExtraction
 from app.config import settings
 import json
 
@@ -27,15 +27,21 @@ class RiskAnalyzerAgent:
             Return a JSON object with:
             {{
               "risk_level": "low|medium|high|critical",
-              "risk_category": "financial|legal|operational|reputational",
+              "risk_type": "financial|legal|operational|reputational",
+              "risk_category": "More specific category (e.g., liability, indemnification, payment)",
               "risk_explanation": "Detailed explanation of why this is risky",
               "potential_impact": "What could go wrong",
-              "worst_case_scenario": "Absolute worst outcome",
-              "financial_exposure": "Estimated dollar impact if applicable",
+              "worst_case_scenario": "Absolute worst outcome with specific example",
+              "financial_exposure": "Estimated dollar impact if applicable (e.g., '$50,000 - $500,000')",
+              "estimated_loss_range": "Min-max loss estimate (e.g., '$10,000 - $1,000,000')",
+              "real_world_example": "Brief example of similar clause causing problems (e.g., 'Company X lost $2M due to similar unlimited liability clause in 2023')",
               "mitigation_steps": ["Step 1", "Step 2"]
             }}
             
-            Be specific and cite legal principles where relevant."""),
+            IMPORTANT: 
+            - risk_type MUST be exactly one of: financial, legal, operational, reputational
+            - Always provide a real_world_example if possible
+            - Be specific with financial_exposure and estimated_loss_range"""),
             ("user", """Analyze this clause:
             
             Clause Name: {clause_name}
@@ -53,15 +59,28 @@ class RiskAnalyzerAgent:
                 clause_text=clause.clause_text[:2000]
             ))
             
+            # Map risk_type string to enum
+            risk_type_str = str(data.get('risk_type', 'legal')).lower()
+            risk_type_map = {
+                'financial': RiskType.FINANCIAL,
+                'legal': RiskType.LEGAL,
+                'operational': RiskType.OPERATIONAL,
+                'reputational': RiskType.REPUTATIONAL
+            }
+            risk_type = risk_type_map.get(risk_type_str, RiskType.LEGAL)
+            
             risk_data = {
                 "clause_id": clause.clause_id,
                 "clause_text": clause.clause_text[:500],
                 "risk_level": RiskLevel(data.get('risk_level', 'medium')),
+                "risk_type": risk_type,
                 "risk_category": str(data.get('risk_category', 'legal')),
                 "risk_explanation": str(data.get('risk_explanation', 'Risk analysis pending')),
                 "potential_impact": str(data.get('potential_impact', 'Impact assessment pending')),
                 "worst_case_scenario": str(data.get('worst_case_scenario', 'Scenario analysis pending')),
                 "financial_exposure": str(data.get('financial_exposure', 'None')),
+                "estimated_loss_range": str(data.get('estimated_loss_range', '')),
+                "real_world_example": str(data.get('real_world_example', '')),
                 "mitigation_steps": data.get('mitigation_steps', [])
             }
             return RiskAssessment(**risk_data)
@@ -72,6 +91,7 @@ class RiskAnalyzerAgent:
                 clause_id=clause.clause_id,
                 clause_text=clause.clause_text[:500],
                 risk_level=RiskLevel.MEDIUM,
+                risk_type=RiskType.LEGAL,
                 risk_category="legal",
                 risk_explanation=f"AI analysis failed: {str(e)}",
                 potential_impact="Requires human review",

@@ -10,7 +10,9 @@ from app.models.schemas import (
     RiskAssessment,
     AlternativeClause,
     LegalReasoning,
-    AgentLog
+    AgentLog,
+    EnhancedSummary,
+    ActionItems
 )
 import asyncio
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
@@ -31,6 +33,12 @@ class AnalysisState(TypedDict):
     recommendations: List[str]
     agent_logs: List[AgentLog]
     error: str
+    # Enhanced summary fields
+    top_critical_issues: List[str]
+    recommendation: str  # approve, negotiate, reject
+    recommendation_reasoning: str
+    action_items: dict  # {must_fix: [], should_negotiate: [], nice_to_have: []}
+    risk_breakdown: dict  # {financial: 0, legal: 0, operational: 0, reputational: 0}
 
 # Thread pool for parallel processing
 executor = ThreadPoolExecutor(max_workers=5)
@@ -200,15 +208,28 @@ class ContractAnalysisWorkflow:
         return state
     
     def generate_summary(self, state: AnalysisState) -> AnalysisState:
-        """Step 5: Generate executive summary"""
+        """Step 5: Generate executive summary with enhanced insights"""
         try:
             start = time.time()
             state["agent_logs"].append(AgentLog(agent="Summarizer", action="generating", message="Creating executive summary...", node="generate_summary"))
             
-            state["executive_summary"] = self.summarizer.generate_summary(
+            # Use enhanced summary generator
+            enhanced = self.summarizer.generate_enhanced_summary(
                 state["risk_assessments"], 
                 state["overall_risk_score"]
             )
+            
+            # Populate state with enhanced summary data
+            state["executive_summary"] = enhanced.overall_assessment
+            state["top_critical_issues"] = enhanced.top_critical_issues
+            state["recommendation"] = enhanced.recommendation
+            state["recommendation_reasoning"] = enhanced.recommendation_reasoning
+            state["action_items"] = {
+                "must_fix": enhanced.action_items.must_fix,
+                "should_negotiate": enhanced.action_items.should_negotiate,
+                "nice_to_have": enhanced.action_items.nice_to_have
+            }
+            state["risk_breakdown"] = enhanced.risk_breakdown
             state["recommendations"] = self._generate_recommendations(state)
             
             elapsed = round(time.time() - start, 1)
@@ -240,10 +261,16 @@ class ContractAnalysisWorkflow:
             "legal_reasoning": [],
             "overall_risk_score": 0.0,
             "executive_summary": "",
-            "engine_version": "2.2.0-Optimized",
+            "engine_version": "2.3.0-Enhanced",
             "recommendations": [],
-            "agent_logs": [AgentLog(agent="System", action="start", message="Starting optimized analysis...", node="start")],
-            "error": ""
+            "agent_logs": [AgentLog(agent="System", action="start", message="Starting enhanced analysis...", node="start")],
+            "error": "",
+            # Enhanced summary fields
+            "top_critical_issues": [],
+            "recommendation": "negotiate",
+            "recommendation_reasoning": "",
+            "action_items": {"must_fix": [], "should_negotiate": [], "nice_to_have": []},
+            "risk_breakdown": {"financial": 0, "legal": 0, "operational": 0, "reputational": 0}
         }
         
         try:
