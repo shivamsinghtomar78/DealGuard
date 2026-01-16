@@ -2,6 +2,9 @@ from langchain_openai import ChatOpenAI
 from langchain_google_genai import ChatGoogleGenerativeAI
 from app.config import settings
 
+# Request timeout in seconds (important for deployment)
+REQUEST_TIMEOUT = 45
+
 # Task-specific model assignments for concurrent processing
 # Each agent type uses a different model for parallel execution
 TASK_MODEL_ROUTING = {
@@ -29,7 +32,6 @@ FALLBACK_MODELS = [
     "mistralai/devstral-2512:free",    # Fallback 1 - reliable
     "qwen/qwen3-coder:free",           # Fallback 2 - good
     "z-ai/glm-4.5-air:free",           # Fallback 3 - slower but solid
-    "deepseek/deepseek-r1-0528:free",  # Fallback 4 - intelligent but slow
 ]
 
 

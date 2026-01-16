@@ -12,6 +12,9 @@ from app.models.schemas import (
     LegalReasoning,
     AgentLog
 )
+import asyncio
+from concurrent.futures import ThreadPoolExecutor, TimeoutError
+import time
 
 class AnalysisState(TypedDict):
     """State for the analysis workflow"""
@@ -29,8 +32,11 @@ class AnalysisState(TypedDict):
     agent_logs: List[AgentLog]
     error: str
 
+# Thread pool for parallel processing
+executor = ThreadPoolExecutor(max_workers=5)
+
 class ContractAnalysisWorkflow:
-    """LangGraph workflow for contract analysis"""
+    """Optimized LangGraph workflow for contract analysis"""
     
     def __init__(self):
         self.clause_extractor = ClauseExtractorAgent()
@@ -48,20 +54,17 @@ class ContractAnalysisWorkflow:
         # Define nodes
         workflow.add_node("extract_clauses", self.extract_clauses)
         workflow.add_node("analyze_risks", self.analyze_risks)
-        workflow.add_node("generate_alternatives", self.generate_alternatives)
-        workflow.add_node("apply_legal_reasoning", self.apply_legal_reasoning)
+        workflow.add_node("generate_alternatives_and_reasoning", self.generate_alternatives_and_reasoning)
         workflow.add_node("calculate_risk_score", self.calculate_risk_score)
         workflow.add_node("generate_summary", self.generate_summary)
         
-        # Define edges with error checking
+        # Optimized flow - combined alternatives + reasoning for parallel execution
         workflow.add_edge("extract_clauses", "analyze_risks")
-        workflow.add_edge("analyze_risks", "generate_alternatives")
-        workflow.add_edge("generate_alternatives", "apply_legal_reasoning")
-        workflow.add_edge("apply_legal_reasoning", "calculate_risk_score")
+        workflow.add_edge("analyze_risks", "generate_alternatives_and_reasoning")
+        workflow.add_edge("generate_alternatives_and_reasoning", "calculate_risk_score")
         workflow.add_edge("calculate_risk_score", "generate_summary")
         workflow.add_edge("generate_summary", END)
         
-        # Set entry point
         workflow.set_entry_point("extract_clauses")
         
         return workflow.compile()
@@ -69,11 +72,13 @@ class ContractAnalysisWorkflow:
     def extract_clauses(self, state: AnalysisState) -> AnalysisState:
         """Step 1: Extract clauses from contract"""
         try:
-            state["agent_logs"].append(AgentLog(agent="Clause Extractor", action="extracting", message="Deconstructing document into structural clauses...", node="extract_clauses"))
+            start = time.time()
+            state["agent_logs"].append(AgentLog(agent="Clause Extractor", action="extracting", message="Analyzing document structure...", node="extract_clauses"))
             clauses = self.clause_extractor.extract_clauses(state["contract_text"])
             state["clauses"] = clauses
-            state["agent_logs"].append(AgentLog(agent="Clause Extractor", action="completed", message=f"Successfully isolated {len(clauses)} legal clauses.", node="extract_clauses", data={"count": len(clauses)}))
-            print(f"✅ Extracted {len(clauses)} clauses")
+            elapsed = round(time.time() - start, 1)
+            state["agent_logs"].append(AgentLog(agent="Clause Extractor", action="completed", message=f"Extracted {len(clauses)} clauses in {elapsed}s", node="extract_clauses", data={"count": len(clauses), "time": elapsed}))
+            print(f"✅ Extracted {len(clauses)} clauses in {elapsed}s")
         except Exception as e:
             state["error"] = f"Clause extraction failed: {str(e)}"
             print(f"❌ Error: {state['error']}")
@@ -81,102 +86,113 @@ class ContractAnalysisWorkflow:
         return state
     
     def analyze_risks(self, state: AnalysisState) -> AnalysisState:
-        """Step 2: Analyze risks in clauses"""
+        """Step 2: Analyze risks (parallel processing for multiple clauses)"""
         try:
-            state["agent_logs"].append(AgentLog(agent="Risk Analyzer", action="analyzing", message="Evaluating clauses against risk taxonomy...", node="analyze_risks"))
-            risk_assessments = self.risk_analyzer.analyze_all_clauses(state["clauses"])
+            start = time.time()
+            state["agent_logs"].append(AgentLog(agent="Risk Analyzer", action="analyzing", message="Evaluating risk vectors...", node="analyze_risks"))
+            
+            # Parallel risk analysis for all clauses
+            def analyze_single(clause):
+                try:
+                    return self.risk_analyzer.analyze_clause_risk(clause)
+                except:
+                    return None
+            
+            with ThreadPoolExecutor(max_workers=3) as pool:
+                results = list(pool.map(analyze_single, state["clauses"], timeout=60))
+            
+            # Filter successful results and medium+ risks
+            risk_assessments = [r for r in results if r and r.risk_level.value in ['medium', 'high', 'critical']]
             state["risk_assessments"] = risk_assessments
-            state["agent_logs"].append(AgentLog(agent="Risk Analyzer", action="completed", message=f"Detected {len(risk_assessments)} potential risk vectors.", node="analyze_risks", data={"count": len(risk_assessments)}))
-            print(f"✅ Identified {len(risk_assessments)} risky clauses")
+            
+            elapsed = round(time.time() - start, 1)
+            state["agent_logs"].append(AgentLog(agent="Risk Analyzer", action="completed", message=f"Found {len(risk_assessments)} risks in {elapsed}s", node="analyze_risks", data={"count": len(risk_assessments), "time": elapsed}))
+            print(f"✅ Identified {len(risk_assessments)} risks in {elapsed}s (parallel)")
         except Exception as e:
             state["error"] = f"Risk analysis failed: {str(e)}"
             print(f"❌ Error: {state['error']}")
         
         return state
     
-    def generate_alternatives(self, state: AnalysisState) -> AnalysisState:
-        """Step 3: Generate alternative clauses"""
+    def generate_alternatives_and_reasoning(self, state: AnalysisState) -> AnalysisState:
+        """Step 3: Generate alternatives AND legal reasoning in PARALLEL"""
         try:
-            state["agent_logs"].append(AgentLog(agent="Alternative Generator", action="generating", message="Synthesizing protective clause alternatives...", node="generate_alternatives"))
+            start = time.time()
+            state["agent_logs"].append(AgentLog(agent="Multi-Agent", action="generating", message="Generating alternatives and legal analysis (parallel)...", node="generate_alternatives"))
+            
+            # Only process high-priority risks for efficiency
+            high_priority = [r for r in state["risk_assessments"] if r.risk_level.value in ['high', 'critical']]
+            medium_risks = [r for r in state["risk_assessments"] if r.risk_level.value == 'medium']
+            
+            # Limit processing to top 5 medium risks for speed
+            risks_to_process = high_priority + medium_risks[:5]
+            
             alternatives = []
-            
-            for risk in state["risk_assessments"]:
-                clause = next((c for c in state["clauses"] if c.clause_id == risk.clause_id), None)
-                if clause:
-                    alt = self.alternative_generator.generate_alternatives(
-                        clause, 
-                        risk.risk_level.value
-                    )
-                    alternatives.append(alt)
-                    
-                    # Also attach as standard_alternative to the risk assessment for Node.js backend
-                    risk.standard_alternative = alt.balanced_standard
-            
-            state["alternatives"] = alternatives
-            state["agent_logs"].append(AgentLog(agent="Alternative Generator", action="completed", message="Alternative synthesis complete.", node="generate_alternatives"))
-            print(f"✅ Generated {len(alternatives)} alternative clauses")
-        except Exception as e:
-            state["error"] = f"Alternative generation failed: {str(e)}"
-            print(f"❌ Error: {state['error']}")
-        
-        return state
-    
-    def apply_legal_reasoning(self, state: AnalysisState) -> AnalysisState:
-        """Step 4: Generate legal reasoning"""
-        try:
-            state["agent_logs"].append(AgentLog(agent="Legal Reasoner", action="reasoning", message="Mapping jurisdictional principles and enforceability...", node="apply_legal_reasoning"))
             reasoning_list = []
             
-            for risk in state["risk_assessments"]:
+            def process_risk(risk):
+                """Process a single risk - generate both alternative and legal reasoning"""
                 clause = next((c for c in state["clauses"] if c.clause_id == risk.clause_id), None)
-                if clause:
-                    reasoning = self.legal_reasoner.generate_legal_reasoning(
-                        clause,
-                        risk.risk_explanation
-                    )
-                    reasoning_list.append(reasoning)
-                    
-                    # Also attach as summary to the risk assessment for standard export
-                    risk.legal_reasoning = f"Principles: {', '.join(reasoning.legal_principles[:3])}. " \
-                                         f"Enforceability: {reasoning.enforceability_assessment}. " \
-                                         f"Position: {reasoning.recommended_position}"
+                if not clause:
+                    return None, None, risk
+                
+                alt = None
+                reasoning = None
+                
+                try:
+                    # Generate alternative
+                    alt = self.alternative_generator.generate_alternatives(clause, risk.risk_level.value)
+                except Exception as e:
+                    print(f"⚠️ Alternative gen failed for {risk.clause_id}: {e}")
+                
+                try:
+                    # Generate legal reasoning
+                    reasoning = self.legal_reasoner.generate_legal_reasoning(clause, risk.risk_explanation)
+                except Exception as e:
+                    print(f"⚠️ Legal reasoning failed for {risk.clause_id}: {e}")
+                
+                return alt, reasoning, risk
             
+            # Process in parallel with timeout
+            with ThreadPoolExecutor(max_workers=4) as pool:
+                futures = [pool.submit(process_risk, risk) for risk in risks_to_process]
+                
+                for future in futures:
+                    try:
+                        alt, reasoning, risk = future.result(timeout=45)
+                        if alt:
+                            alternatives.append(alt)
+                            risk.standard_alternative = alt.balanced_standard
+                        if reasoning:
+                            reasoning_list.append(reasoning)
+                            risk.legal_reasoning = f"Principles: {', '.join(reasoning.legal_principles[:2])}. {reasoning.enforceability_assessment[:100]}"
+                    except TimeoutError:
+                        print(f"⚠️ Processing timeout - skipping")
+                    except Exception as e:
+                        print(f"⚠️ Processing error: {e}")
+            
+            state["alternatives"] = alternatives
             state["legal_reasoning"] = reasoning_list
-            state["agent_logs"].append(AgentLog(agent="Legal Reasoner", action="completed", message="Jurisprudence mapping complete.", node="apply_legal_reasoning"))
-            print(f"✅ Generated legal reasoning for {len(reasoning_list)} clauses and attached to risk assessments")
+            
+            elapsed = round(time.time() - start, 1)
+            state["agent_logs"].append(AgentLog(agent="Multi-Agent", action="completed", message=f"Generated {len(alternatives)} alternatives + {len(reasoning_list)} analyses in {elapsed}s", node="apply_legal_reasoning", data={"alternatives": len(alternatives), "reasoning": len(reasoning_list), "time": elapsed}))
+            print(f"✅ Parallel processing complete in {elapsed}s")
         except Exception as e:
-            state["error"] = f"Legal reasoning failed: {str(e)}"
+            state["error"] = f"Parallel processing failed: {str(e)}"
             print(f"❌ Error: {state['error']}")
         
         return state
     
     def calculate_risk_score(self, state: AnalysisState) -> AnalysisState:
-        """Step 5: Calculate overall risk score"""
+        """Step 4: Calculate overall risk score"""
         try:
-            print("📊 Calculating risk score...")
+            risk_weights = {"critical": 10, "high": 7, "medium": 4, "low": 1}
             
-            risk_weights = {
-                "critical": 10,
-                "high": 7,
-                "medium": 4,
-                "low": 1
-            }
+            total_weight = sum(risk_weights.get(r.risk_level.value, 4) for r in state["risk_assessments"])
+            count = len(state["risk_assessments"])
             
-            total_weight = 0
-            count = 0
-            
-            for risk in state["risk_assessments"]:
-                weight = risk_weights.get(risk.risk_level.value, 4)
-                total_weight += weight
-                count += 1
-            
-            if count > 0:
-                avg_score = total_weight / count
-            else:
-                avg_score = 0
-            
-            state["overall_risk_score"] = round(avg_score, 2)
-            print(f"✅ Overall risk score: {state['overall_risk_score']}/10")
+            state["overall_risk_score"] = round(total_weight / count, 2) if count > 0 else 0
+            print(f"✅ Risk score: {state['overall_risk_score']}/10")
         except Exception as e:
             state["error"] = f"Risk score calculation failed: {str(e)}"
             print(f"❌ Error: {state['error']}")
@@ -184,43 +200,36 @@ class ContractAnalysisWorkflow:
         return state
     
     def generate_summary(self, state: AnalysisState) -> AnalysisState:
-        """Step 6: Generate executive summary"""
+        """Step 5: Generate executive summary"""
         try:
-            print("📋 Generating elaborated executive summary...")
+            start = time.time()
+            state["agent_logs"].append(AgentLog(agent="Summarizer", action="generating", message="Creating executive summary...", node="generate_summary"))
             
             state["executive_summary"] = self.summarizer.generate_summary(
                 state["risk_assessments"], 
                 state["overall_risk_score"]
             )
             state["recommendations"] = self._generate_recommendations(state)
-            print("✅ Strategic summary generated")
+            
+            elapsed = round(time.time() - start, 1)
+            state["agent_logs"].append(AgentLog(agent="Summarizer", action="completed", message=f"Summary complete in {elapsed}s", node="generate_summary"))
+            print(f"✅ Summary generated in {elapsed}s")
         except Exception as e:
             state["error"] = f"Summary generation failed: {str(e)}"
             print(f"❌ Error: {state['error']}")
         
         return state
     
-    def _format_top_concerns(self, top_risks: List[RiskAssessment]) -> str:
-        """Format top risk concerns"""
-        concerns = []
-        for i, risk in enumerate(top_risks, 1):
-            concerns.append(f"{i}. {risk.clause_text[:100]}... ({risk.risk_level.value} risk)")
-        return "\n".join(concerns) if concerns else "None identified"
-    
     def _generate_recommendations(self, state: AnalysisState) -> List[str]:
         """Generate actionable recommendations"""
         recommendations = []
-        
         for risk in state["risk_assessments"]:
             if risk.risk_level.value in ["critical", "high"]:
-                recommendations.append(
-                    f"MUST FIX: {risk.risk_explanation[:150]}..."
-                )
-        
+                recommendations.append(f"FIX: {risk.risk_explanation[:120]}...")
         return recommendations[:5]
     
     def run(self, contract_text: str, contract_id: str, category: str) -> AnalysisState:
-        """Execute the complete workflow"""
+        """Execute the optimized workflow"""
         initial_state: AnalysisState = {
             "contract_text": contract_text,
             "contract_id": contract_id,
@@ -231,20 +240,22 @@ class ContractAnalysisWorkflow:
             "legal_reasoning": [],
             "overall_risk_score": 0.0,
             "executive_summary": "",
-            "engine_version": "2.1.0-Elite",
+            "engine_version": "2.2.0-Optimized",
             "recommendations": [],
-            "agent_logs": [AgentLog(agent="System", action="start", message="Initializing Neural Engine...", node="start")],
+            "agent_logs": [AgentLog(agent="System", action="start", message="Starting optimized analysis...", node="start")],
             "error": ""
         }
         
         try:
-            print("\n🚀 Starting Contract Analysis Workflow\n")
+            print("\n🚀 Starting Optimized Contract Analysis\n")
+            start = time.time()
             result = self.workflow.invoke(initial_state)
+            total = round(time.time() - start, 1)
             
             if result.get("error"):
                 print(f"\n❌ Workflow failed: {result['error']}\n")
             else:
-                print("\n✅ Workflow Complete!\n")
+                print(f"\n✅ Workflow Complete in {total}s!\n")
             
             return result
         except Exception as e:
