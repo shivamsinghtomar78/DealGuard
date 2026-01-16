@@ -73,12 +73,24 @@ const allowedOrigins = [
   'https://www.deal-guard.vercel.app'
 ].filter(Boolean);
 
+// Patterns for dynamic Vercel preview URLs
+const allowedPatterns = [
+  /\.vercel\.app$/,  // All Vercel preview deployments
+  /localhost:\d+$/    // All localhost ports
+];
+
 app.use(cors({
   origin: function (origin, callback) {
     // Allow requests with no origin (mobile apps, curl, etc.)
     if (!origin) return callback(null, true);
 
-    if (allowedOrigins.some(allowed => origin.startsWith(allowed!.replace('www.', '')))) {
+    // Check exact matches
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    // Check pattern matches (Vercel previews, localhost)
+    if (allowedPatterns.some(pattern => pattern.test(origin))) {
       return callback(null, true);
     }
 
