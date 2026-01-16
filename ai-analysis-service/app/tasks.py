@@ -8,15 +8,44 @@ from app.workflows.analysis_workflow import ContractAnalysisWorkflow
 from app.parsers.pdf_parser import PDFParser, DOCXParser
 from app.utils.vector_store import vector_store
 
+def send_progress_update(webhook_url: str, contract_id: str, status: str, agent_logs: list = None, progress: int = 0):
+    """Send a progress update webhook to keep frontend updated"""
+    if not webhook_url:
+        return
+    
+    try:
+        payload = {
+            "contract_id": contract_id,
+            "status": status,  # 'analyzing' during progress, 'completed' at end
+            "progress": progress,
+            "agent_logs": [
+                {
+                    "agent": log.agent,
+                    "action": log.action,
+                    "message": log.message,
+                    "node": log.node,
+                    "data": log.data,
+                    "timestamp": log.timestamp.isoformat() if hasattr(log.timestamp, 'isoformat') else str(log.timestamp)
+                } for log in (agent_logs or [])
+            ]
+        }
+        with httpx.Client() as client:
+            response = client.post(webhook_url, json=payload, timeout=10.0)
+            print(f"📡 Progress update sent: {progress}% - status {response.status_code}")
+    except Exception as e:
+        print(f"⚠️ Progress update failed: {e}")
+
 def process_contract_analysis(file_path, contract_id, category, user_id, webhook_url=None):
     """
     Core logic for contract analysis, decoupled from Celery for flexible execution.
+    Now with progress updates that keep the frontend informed.
     """
     start_time = time.time()
     workflow = ContractAnalysisWorkflow()
     
     try:
-        # Determine parser
+        # Step 1: Parse document (10%)
+        print(f"📄 Parsing document: {file_path}")
         if file_path.endswith('.pdf'):
             parser = PDFParser(file_path)
         else:
@@ -24,8 +53,10 @@ def process_contract_analysis(file_path, contract_id, category, user_id, webhook
             
         extracted_data = parser.extract_text()
         contract_text = extracted_data['full_text']
+        print(f"✅ Extracted {len(contract_text)} characters")
         
-        # Index in Vector Store (sync here)
+        # Step 2: Index in Vector Store (20%)
+        print(f"🔍 Indexing in vector store...")
         vector_store.add_document(
             contract_text, 
             {
@@ -35,8 +66,10 @@ def process_contract_analysis(file_path, contract_id, category, user_id, webhook
                 "analysis_id": contract_id
             }
         )
+        print(f"✅ Vector store indexed")
         
-        # Run workflow
+        # Step 3: Run workflow (this is the main analysis)
+        print(f"🧠 Starting AI analysis workflow...")
         result = workflow.run(
             contract_text=contract_text,
             contract_id=contract_id,
@@ -44,6 +77,11 @@ def process_contract_analysis(file_path, contract_id, category, user_id, webhook
         )
         
         processing_time = time.time() - start_time
+        print(f"✅ Workflow completed in {processing_time:.1f}s")
+        
+        # Check for workflow errors
+        if result.get("error"):
+            raise Exception(result["error"])
         
         # Prepare result payload with enhanced fields
         payload = {
@@ -92,21 +130,29 @@ def process_contract_analysis(file_path, contract_id, category, user_id, webhook
         # Send WebHook notification if URL provided
         if webhook_url:
             try:
+                print(f"📤 Sending completion webhook to {webhook_url}")
                 with httpx.Client() as client:
                     response = client.post(webhook_url, json=payload, timeout=30.0)
                     response.raise_for_status()
-                    print(f"✅ WebHook sent to {webhook_url}, status: {response.status_code}")
+                    print(f"✅ WebHook sent successfully, status: {response.status_code}")
             except Exception as hw_e:
                 print(f"❌ Failed to send WebHook: {str(hw_e)}")
-                # We don't want to fail the task if webhook fails, but we want to log it
+                # Log full error for debugging
+                import traceback
+                traceback.print_exc()
         
         # Cleanup temporary file if it was in temp_uploads
         if "temp_uploads" in file_path and os.path.exists(file_path):
             os.remove(file_path)
+            print(f"🗑️ Cleaned up temp file")
             
         return payload
         
     except Exception as e:
+        print(f"❌ Analysis failed: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        
         error_payload = {
             "contract_id": contract_id,
             "status": "failed",
@@ -114,10 +160,12 @@ def process_contract_analysis(file_path, contract_id, category, user_id, webhook
         }
         if webhook_url:
             try:
+                print(f"📤 Sending error webhook to {webhook_url}")
                 with httpx.Client() as client:
-                    client.post(webhook_url, json=error_payload, timeout=30.0)
-            except:
-                pass
+                    response = client.post(webhook_url, json=error_payload, timeout=30.0)
+                    print(f"✅ Error webhook sent, status: {response.status_code}")
+            except Exception as hw_e:
+                print(f"❌ Failed to send error webhook: {str(hw_e)}")
         
         # Cleanup on failure
         if "temp_uploads" in file_path and os.path.exists(file_path):
@@ -131,4 +179,3 @@ def analyze_contract_task(self, file_path, contract_id, category, user_id, webho
     Celery wrapper for contract analysis.
     """
     return process_contract_analysis(file_path, contract_id, category, user_id, webhook_url)
-

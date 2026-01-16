@@ -222,9 +222,28 @@ export const handleAnalysisWebhook = async (req: Request, res: Response) => {
         }
 
         if (status === 'failed') {
-            analysis.status = 'pending'; // Or 'failed'
+            analysis.status = 'pending'; // Reset to allow retry
             analysis.aiSummary = `Analysis failed: ${error}`;
             await analysis.save();
+            console.log(`❌ Analysis ${contract_id} marked as failed: ${error}`);
+            return res.status(200).json({ success: true });
+        }
+
+        // Handle progress updates (status = 'analyzing')
+        if (status === 'analyzing') {
+            // Just update agent logs for progress display
+            const mappedAgentLogs = (agent_logs || []).map((log: any) => ({
+                agent: log.agent,
+                action: log.action,
+                message: log.message,
+                timestamp: log.timestamp ? new Date(log.timestamp) : new Date(),
+                node: log.node,
+                data: log.data
+            }));
+
+            analysis.agentLogs = mappedAgentLogs;
+            await analysis.save();
+            console.log(`📡 Progress update for ${contract_id}`);
             return res.status(200).json({ success: true });
         }
 
