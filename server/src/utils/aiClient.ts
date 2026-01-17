@@ -1,6 +1,7 @@
 import axios from 'axios';
 import fs from 'fs';
 import FormData from 'form-data';
+import path from 'path';
 
 const BASE_AI_URL = (process.env.AI_SERVICE_URL || 'http://localhost:8000').replace(/\/$/, '');
 const AI_SERVICE_URL = BASE_AI_URL;
@@ -18,7 +19,11 @@ export const uploadFileForAnalysis = async (
 ) => {
     try {
         const formData = new FormData();
-        formData.append('file', fs.createReadStream(filePath));
+        const fileBuffer = fs.readFileSync(filePath);
+        formData.append('file', fileBuffer, {
+            filename: path.basename(filePath),
+            contentType: 'application/pdf'
+        });
         formData.append('contract_id', contractId);
         formData.append('category', category);
         formData.append('user_id', 'prod_user'); // Ensure user_id is passed
@@ -27,7 +32,7 @@ export const uploadFileForAnalysis = async (
             formData.append('webhook_url', webhookUrl);
         }
 
-        console.log(`📡 Axios: POST to ${AI_SERVICE_URL}/analyze/upload`);
+        console.log(`📡 Axios: POST to ${AI_SERVICE_URL}/analyze/upload (${(fileBuffer.length / 1024).toFixed(1)} KB)`);
 
         const response = await axios.post(`${AI_SERVICE_URL}/analyze/upload`, formData, {
             headers: {
@@ -35,7 +40,7 @@ export const uploadFileForAnalysis = async (
             },
             maxContentLength: Infinity,
             maxBodyLength: Infinity,
-            timeout: 10000 // 10s handoff timeout
+            timeout: 60000 // 60s handoff
         });
 
         return response.data;
