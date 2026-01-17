@@ -46,6 +46,7 @@ class Settings(BaseSettings):
     pinecone_api_key: str = ""
     pinecone_index_name: str = "dealguard"
     pinecone_environment: str = "" # Some older regions need this
+    disable_vector_indexing: bool = False # Flag to disable vector indexing on low-RAM envs
     
     # Backend
     backend_api_url: str = "http://localhost:5000"

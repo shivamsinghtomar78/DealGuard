@@ -25,6 +25,9 @@ class VectorStoreManager:
     @property
     def embedding_fn(self):
         """Lazy load the embedding function only when needed."""
+        if settings.disable_vector_indexing:
+            return None
+            
         if self._embedding_fn is None:
             print("🚀 Loading embedding model (lazy-load)...")
             from pymilvus import model
