@@ -20,22 +20,36 @@ export const uploadFileForAnalysis = async (
         formData.append('file', fs.createReadStream(filePath));
         formData.append('contract_id', contractId);
         formData.append('category', category);
+        formData.append('user_id', 'prod_user'); // Ensure user_id is passed
+
         if (webhookUrl) {
             formData.append('webhook_url', webhookUrl);
         }
+
+        console.log(`📡 Axios: POST to ${AI_SERVICE_URL}/analyze/upload`);
 
         const response = await axios.post(`${AI_SERVICE_URL}/analyze/upload`, formData, {
             headers: {
                 ...formData.getHeaders(),
             },
             maxContentLength: Infinity,
-            maxBodyLength: Infinity
+            maxBodyLength: Infinity,
+            timeout: 10000 // 10s handoff timeout
         });
 
         return response.data;
     } catch (error: any) {
-        console.error('AI Upload Analysis Error:', error.response?.data || error.message);
-        throw new Error('Failed to upload and analyze contract with AI service');
+        console.error('❌ AI Client Upload Error:', error.message);
+        if (error.response) {
+            console.error('   Response Status:', error.response.status);
+            console.error('   Response Data:', JSON.stringify(error.response.data));
+        } else if (error.request) {
+            console.error('   No response received from AI service. Request was sent.');
+            console.error('   Request Config:', error.config); // Add request config for more context
+        } else {
+            console.error('   Error during request setup:', error.message); // Catch other errors
+        }
+        throw error;
     }
 };
 

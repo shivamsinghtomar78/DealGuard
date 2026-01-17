@@ -62,8 +62,12 @@ export const uploadAndAnalyze = async (req: AuthRequest, res: Response) => {
             }
         }
         const webhookUrl = `${serverBaseUrl}/api/contracts/webhook/analysis`;
+        const aiServiceUrl = process.env.AI_SERVICE_URL || 'http://localhost:8000';
 
-        console.log(`📤 Sending to AI Service with Webhook URL: ${webhookUrl}`);
+        console.log(`🚀 DEBUG: Triggering AI Analysis`);
+        console.log(`   - AI Service: ${aiServiceUrl}`);
+        console.log(`   - Webhook: ${webhookUrl}`);
+        console.log(`   - File: ${req.file.originalname} (${req.file.path})`);
 
         // We don't await the full analysis result here anymore
         uploadFileForAnalysis(
@@ -71,12 +75,14 @@ export const uploadAndAnalyze = async (req: AuthRequest, res: Response) => {
             analysis._id.toString(),
             category || 'other',
             webhookUrl
-        ).catch(err => {
-            console.error('Async AI Trigger Error:', err);
-            // Optionally update analysis status to 'failed' if trigger fails
+        ).then(result => {
+            console.log(`✅ AI Service handoff successful for ${analysis._id}`);
+        }).catch(err => {
+            console.error('❌ Async AI Trigger Error:', err.message);
+            // Update analysis status to failed since we couldn't even start it
             Analysis.findByIdAndUpdate(analysis._id, {
-                status: 'pending', // Revert to pending
-                aiSummary: 'Failed to initiate AI analysis. Our team has been notified.'
+                status: 'pending',
+                aiSummary: `Failed to connect to AI engine. Error: ${err.message}`
             }).exec();
         });
 
