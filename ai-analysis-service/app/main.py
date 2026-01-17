@@ -15,6 +15,7 @@ if settings.langchain_tracing_v2 or os.getenv("LANGCHAIN_TRACING_V2") == "true":
     os.environ["LANGCHAIN_API_KEY"] = settings.langchain_api_key
     os.environ["LANGCHAIN_PROJECT"] = settings.langchain_project
     print(f"📡 LangSmith Tracing enabled for project: {settings.langchain_project}")
+print(f"🔧 CONFIG: Vector Indexing is {'DISABLED' if settings.disable_vector_indexing else 'ENABLED'}")
 
 from app.models.schemas import (
     ContractAnalysisRequest, 
