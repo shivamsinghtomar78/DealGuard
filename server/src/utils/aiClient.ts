@@ -2,7 +2,8 @@ import axios from 'axios';
 import fs from 'fs';
 import FormData from 'form-data';
 
-const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:8000';
+const BASE_AI_URL = (process.env.AI_SERVICE_URL || 'http://localhost:8000').replace(/\/$/, '');
+const AI_SERVICE_URL = BASE_AI_URL;
 
 /**
  * Sends a file to the AI service for analysis using multipart/form-data.

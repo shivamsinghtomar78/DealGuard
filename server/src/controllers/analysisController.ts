@@ -7,9 +7,13 @@ import User from '../models/User.js';
 
 export const uploadAndAnalyze = async (req: AuthRequest, res: Response) => {
     try {
+        console.log(`📥 API: Received /upload-analyze request`);
         if (!req.file) {
+            console.error('❌ No file in request');
             return res.status(400).json({ success: false, message: 'No file uploaded' });
         }
+        console.log(`   - File: ${req.file.originalname}`);
+        console.log(`   - Size: ${req.file.size} bytes`);
 
         const { templateId, category } = req.body;
         const userId = req.user?._id;
@@ -62,10 +66,14 @@ export const uploadAndAnalyze = async (req: AuthRequest, res: Response) => {
             }
         }
         const webhookUrl = `${serverBaseUrl}/api/contracts/webhook/analysis`;
-        const aiServiceUrl = process.env.AI_SERVICE_URL || 'http://localhost:8000';
+        let AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:8000';
+        // Remove trailing slash if present to avoid double slashes
+        if (AI_SERVICE_URL.endsWith('/')) {
+            AI_SERVICE_URL = AI_SERVICE_URL.slice(0, -1);
+        }
 
         console.log(`🚀 DEBUG: Triggering AI Analysis`);
-        console.log(`   - AI Service: ${aiServiceUrl}`);
+        console.log(`   - AI Service: ${AI_SERVICE_URL}`);
         console.log(`   - Webhook: ${webhookUrl}`);
         console.log(`   - File: ${req.file.originalname} (${req.file.path})`);
 
