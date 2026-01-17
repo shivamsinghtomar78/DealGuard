@@ -82,19 +82,30 @@ export const signup = async (req: Request, res: Response) => {
 
 export const signin = async (req: Request, res: Response) => {
     try {
+        console.log('Signin attempt - Body:', req.body);
         const { email, password } = req.body;
         if (!email || !password) {
+            console.log('Signin failed: Missing email or password');
             return res.status(403).json({ success: false, message: 'Please provide email and password' });
         }
 
+        console.log(`Signin attempt for: ${email}`);
         const user = await User.findOne({ email }).select('+password');
-        if (!user || !(await user.comparePassword(password))) {
+        if (!user) {
+            console.log(`Signin failed: User not found - ${email}`);
             return res.status(403).json({ success: false, message: 'Invalid credentials' });
         }
 
+        const isMatch = await user.comparePassword(password);
+        if (!isMatch) {
+            console.log(`Signin failed: Invalid password for - ${email}`);
+            return res.status(403).json({ success: false, message: 'Invalid credentials' });
+        }
 
+        console.log(`Signin successful: ${email}`);
         const token = user.getSignedJwtToken();
         res.status(200).json({
+            success: true,
             token,
             user: {
                 id: user._id,
@@ -105,6 +116,7 @@ export const signin = async (req: Request, res: Response) => {
 
         });
     } catch (error: any) {
+        console.error('Signin error:', error);
         res.status(500).json({ success: false, message: 'Internal server error' });
     }
 };

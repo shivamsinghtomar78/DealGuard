@@ -46,12 +46,24 @@ export const uploadAndAnalyze = async (req: AuthRequest, res: Response) => {
         });
 
         // Trigger Python AI service asynchronously
-        // Construct webhook URL - use SERVER_URL env var in production, or detect from request
-        const serverBaseUrl = process.env.SERVER_URL ||
-            `${process.env.NODE_ENV === 'production' ? 'https' : req.protocol}://${req.get('host')}`;
+        // Construct webhook URL - SERVER_URL MUST be set for production!
+        let serverBaseUrl = process.env.SERVER_URL;
+        if (!serverBaseUrl) {
+            if (process.env.NODE_ENV === 'production') {
+                // In production, try to use req.get('host') but warn that SERVER_URL should be set
+                serverBaseUrl = `https://${req.get('host')}`;
+                console.warn(`⚠️ WARNING: SERVER_URL environment variable is not set!`);
+                console.warn(`⚠️ Using fallback: ${serverBaseUrl}`);
+                console.warn(`⚠️ The AI service may not be able to reach this URL for webhooks.`);
+                console.warn(`⚠️ Please set SERVER_URL to your Render server URL (e.g., https://dealguard-server.onrender.com)`);
+            } else {
+                // Use explicit localhost for development to ensure AI service can reach it
+                serverBaseUrl = `http://localhost:${process.env.PORT || 5000}`;
+            }
+        }
         const webhookUrl = `${serverBaseUrl}/api/contracts/webhook/analysis`;
 
-        console.log(`Webhook URL: ${webhookUrl}`);
+        console.log(`📤 Sending to AI Service with Webhook URL: ${webhookUrl}`);
 
         // We don't await the full analysis result here anymore
         uploadFileForAnalysis(

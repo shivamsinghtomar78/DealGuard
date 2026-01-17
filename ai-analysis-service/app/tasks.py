@@ -39,6 +39,12 @@ def process_contract_analysis(file_path, contract_id, category, user_id, webhook
     Core logic for contract analysis, decoupled from Celery for flexible execution.
     Now with progress updates that keep the frontend informed.
     """
+    print(f"\n{'='*50}")
+    print(f"📋 TASKS.PY: process_contract_analysis started")
+    print(f"   Contract ID: {contract_id}")
+    print(f"   Webhook URL: {webhook_url}")
+    print(f"{'='*50}\n")
+    
     start_time = time.time()
     workflow = ContractAnalysisWorkflow()
     
@@ -79,100 +85,47 @@ def process_contract_analysis(file_path, contract_id, category, user_id, webhook
         result = workflow.run(
             contract_text=contract_text,
             contract_id=contract_id,
-            category=category
+            category=category,
+            webhook_url=webhook_url
         )
-        
-        processing_time = time.time() - start_time
-        print(f"✅ Workflow completed in {processing_time:.1f}s")
-        
-        # Check for workflow errors
-        if result.get("error"):
-            raise Exception(result["error"])
-        
-        # Prepare result payload with enhanced fields
-        payload = {
-            "contract_id": contract_id,
-            "status": "completed",
-            "overall_risk_score": result["overall_risk_score"],
-            "executive_summary": result["executive_summary"],
-            # Enhanced summary fields
-            "top_critical_issues": result.get("top_critical_issues", []),
-            "recommendation": result.get("recommendation", "negotiate"),
-            "recommendation_reasoning": result.get("recommendation_reasoning", ""),
-            "action_items": result.get("action_items", {}),
-            "risk_breakdown": result.get("risk_breakdown", {}),
-            # Risk assessments with enhanced fields
-            "risk_assessments": [
-                {
-                    "clause_id": ra.clause_id,
-                    "clause_text": ra.clause_text,
-                    "risk_level": ra.risk_level.value if hasattr(ra.risk_level, 'value') else ra.risk_level,
-                    "risk_type": ra.risk_type.value if hasattr(ra.risk_type, 'value') else getattr(ra, 'risk_type', 'legal'),
-                    "risk_category": ra.risk_category,
-                    "risk_explanation": ra.risk_explanation,
-                    "potential_impact": ra.potential_impact,
-                    "worst_case_scenario": ra.worst_case_scenario,
-                    "financial_exposure": ra.financial_exposure or "",
-                    "estimated_loss_range": getattr(ra, 'estimated_loss_range', '') or "",
-                    "real_world_example": getattr(ra, 'real_world_example', '') or "",
-                    "standard_alternative": ra.standard_alternative,
-                    "legal_reasoning": ra.legal_reasoning
-                } for ra in result["risk_assessments"]
-            ],
-            "agent_logs": [
-                {
-                    "agent": log.agent,
-                    "action": log.action,
-                    "message": log.message,
-                    "node": log.node,
-                    "data": log.data,
-                    "timestamp": log.timestamp.isoformat() if hasattr(log.timestamp, 'isoformat') else str(log.timestamp)
-                } for log in result.get("agent_logs", [])
-            ],
-            "full_text": contract_text,
-            "processing_time": processing_time
-        }
-        
-        # Send WebHook notification if URL provided
-        if webhook_url:
-            try:
-                print(f"📤 Sending completion webhook to {webhook_url}")
-                with httpx.Client() as client:
-                    response = client.post(webhook_url, json=payload, timeout=30.0)
-                    response.raise_for_status()
-                    print(f"✅ WebHook sent successfully, status: {response.status_code}")
-            except Exception as hw_e:
-                print(f"❌ Failed to send WebHook: {str(hw_e)}")
-                # Log full error for debugging
-                import traceback
-                traceback.print_exc()
         
         # Cleanup temporary file if it was in temp_uploads
         if "temp_uploads" in file_path and os.path.exists(file_path):
             os.remove(file_path)
             print(f"🗑️ Cleaned up temp file")
             
-        return payload
+        print(f"✅ TASKS.PY: Background task completed successfully for {contract_id}")
+        return result
         
     except Exception as e:
         print(f"❌ Analysis failed: {str(e)}")
         import traceback
         traceback.print_exc()
         
-        error_payload = {
-            "contract_id": contract_id,
-            "status": "failed",
-            "error": str(e)
-        }
-        if webhook_url:
-            try:
-                print(f"📤 Sending error webhook to {webhook_url}")
-                with httpx.Client() as client:
-                    response = client.post(webhook_url, json=error_payload, timeout=30.0)
-                    print(f"✅ Error webhook sent, status: {response.status_code}")
-            except Exception as hw_e:
-                print(f"❌ Failed to send error webhook: {str(hw_e)}")
-        
+        # Emergency status update in case of fatal error before/during workflow
+        try:
+            print("🔄 Attempting emergency MongoDB update for failure status...")
+            from pymongo import MongoClient
+            from bson import ObjectId
+            from app.config import settings
+            from datetime import datetime
+            
+            client = MongoClient(settings.mongodb_uri)
+            db = client.get_default_database()
+            
+            db.analyses.update_one(
+                {"_id": ObjectId(contract_id)},
+                {"$set": {
+                    "status": "failed",
+                    "error": str(e),
+                    "completedAt": datetime.utcnow()
+                }}
+            )
+            print(f"✅ Saved failure status for {contract_id}")
+            client.close()
+        except:
+            pass
+            
         # Cleanup on failure
         if "temp_uploads" in file_path and os.path.exists(file_path):
             os.remove(file_path)

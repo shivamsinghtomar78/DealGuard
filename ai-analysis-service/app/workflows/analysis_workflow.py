@@ -39,6 +39,7 @@ class AnalysisState(TypedDict):
     recommendation_reasoning: str
     action_items: dict  # {must_fix: [], should_negotiate: [], nice_to_have: []}
     risk_breakdown: dict  # {financial: 0, legal: 0, operational: 0, reputational: 0}
+    webhook_url: str
 
 # Thread pool for parallel processing
 executor = ThreadPoolExecutor(max_workers=5)
@@ -71,7 +72,9 @@ class ContractAnalysisWorkflow:
         workflow.add_edge("analyze_risks", "generate_alternatives_and_reasoning")
         workflow.add_edge("generate_alternatives_and_reasoning", "calculate_risk_score")
         workflow.add_edge("calculate_risk_score", "generate_summary")
-        workflow.add_edge("generate_summary", END)
+        workflow.add_node("finalize", self.finalize_analysis)
+        workflow.add_edge("generate_summary", "finalize")
+        workflow.add_edge("finalize", END)
         
         workflow.set_entry_point("extract_clauses")
         
@@ -126,20 +129,22 @@ class ContractAnalysisWorkflow:
         """Step 3: Generate alternatives AND legal reasoning in PARALLEL"""
         try:
             start = time.time()
+            print("🔄 Starting alternatives and reasoning generation...")
             state["agent_logs"].append(AgentLog(agent="Multi-Agent", action="generating", message="Generating alternatives and legal analysis (parallel)...", node="generate_alternatives"))
             
             # Only process high-priority risks for efficiency
             high_priority = [r for r in state["risk_assessments"] if r.risk_level.value in ['high', 'critical']]
             medium_risks = [r for r in state["risk_assessments"] if r.risk_level.value == 'medium']
             
-            # Limit processing to top 5 medium risks for speed
-            risks_to_process = high_priority + medium_risks[:5]
+            # Limit processing to top 3 risks for speed on free tier
+            risks_to_process = (high_priority + medium_risks[:3])[:5]
+            print(f"📋 Processing {len(risks_to_process)} risks (limited for speed)")
             
             alternatives = []
             reasoning_list = []
             
             def process_risk(risk):
-                """Process a single risk - generate both alternative and legal reasoning"""
+                """Process a single risk - generate alternative only (skip slow legal reasoning)"""
                 clause = next((c for c in state["clauses"] if c.clause_id == risk.clause_id), None)
                 if not clause:
                     return None, None, risk
@@ -148,46 +153,47 @@ class ContractAnalysisWorkflow:
                 reasoning = None
                 
                 try:
-                    # Generate alternative
+                    # Generate alternative (faster)
+                    print(f"  📝 Generating alternative for {risk.clause_id}...")
                     alt = self.alternative_generator.generate_alternatives(clause, risk.risk_level.value)
+                    print(f"  ✅ Alternative generated for {risk.clause_id}")
                 except Exception as e:
-                    print(f"⚠️ Alternative gen failed for {risk.clause_id}: {e}")
+                    print(f"  ⚠️ Alternative gen failed for {risk.clause_id}: {e}")
                 
-                try:
-                    # Generate legal reasoning
-                    reasoning = self.legal_reasoner.generate_legal_reasoning(clause, risk.risk_explanation)
-                except Exception as e:
-                    print(f"⚠️ Legal reasoning failed for {risk.clause_id}: {e}")
+                # Skip legal reasoning for faster processing - it uses slow models
+                # Instead set a placeholder
+                risk.legal_reasoning = f"Risk identified: {risk.risk_explanation[:150]}"
                 
                 return alt, reasoning, risk
             
-            # Process in parallel with timeout
-            with ThreadPoolExecutor(max_workers=4) as pool:
+            # Process with limited parallelism and shorter timeout
+            with ThreadPoolExecutor(max_workers=2) as pool:
                 futures = [pool.submit(process_risk, risk) for risk in risks_to_process]
                 
-                for future in futures:
+                for i, future in enumerate(futures):
                     try:
-                        alt, reasoning, risk = future.result(timeout=45)
+                        print(f"  ⏳ Waiting for result {i+1}/{len(futures)}...")
+                        alt, reasoning, risk = future.result(timeout=30)  # Reduced timeout
                         if alt:
                             alternatives.append(alt)
                             risk.standard_alternative = alt.balanced_standard
-                        if reasoning:
-                            reasoning_list.append(reasoning)
-                            risk.legal_reasoning = f"Principles: {', '.join(reasoning.legal_principles[:2])}. {reasoning.enforceability_assessment[:100]}"
+                        print(f"  ✅ Result {i+1} completed")
                     except TimeoutError:
-                        print(f"⚠️ Processing timeout - skipping")
+                        print(f"  ⚠️ Processing timeout for result {i+1} - skipping")
                     except Exception as e:
-                        print(f"⚠️ Processing error: {e}")
+                        print(f"  ⚠️ Processing error for result {i+1}: {e}")
             
             state["alternatives"] = alternatives
             state["legal_reasoning"] = reasoning_list
             
             elapsed = round(time.time() - start, 1)
-            state["agent_logs"].append(AgentLog(agent="Multi-Agent", action="completed", message=f"Generated {len(alternatives)} alternatives + {len(reasoning_list)} analyses in {elapsed}s", node="apply_legal_reasoning", data={"alternatives": len(alternatives), "reasoning": len(reasoning_list), "time": elapsed}))
-            print(f"✅ Parallel processing complete in {elapsed}s")
+            state["agent_logs"].append(AgentLog(agent="Multi-Agent", action="completed", message=f"Generated {len(alternatives)} alternatives in {elapsed}s", node="apply_legal_reasoning", data={"alternatives": len(alternatives), "reasoning": len(reasoning_list), "time": elapsed}))
+            print(f"✅ Generated {len(alternatives)} alternatives in {elapsed}s")
         except Exception as e:
+            print(f"❌ Parallel processing failed: {str(e)}")
+            import traceback
+            traceback.print_exc()
             state["error"] = f"Parallel processing failed: {str(e)}"
-            print(f"❌ Error: {state['error']}")
         
         return state
     
@@ -249,7 +255,116 @@ class ContractAnalysisWorkflow:
                 recommendations.append(f"FIX: {risk.risk_explanation[:120]}...")
         return recommendations[:5]
     
-    def run(self, contract_text: str, contract_id: str, category: str) -> AnalysisState:
+    def finalize_analysis(self, state: AnalysisState) -> AnalysisState:
+        """Step 6: Finalize analysis, send webhook and update DB"""
+        import httpx
+        import json
+        from pymongo import MongoClient
+        from bson import ObjectId
+        from app.config import settings
+        from datetime import datetime
+        import sys
+
+        print("\n🏁 Finalizing analysis and persisting results...")
+        sys.stdout.flush()
+
+        # Prepare payload
+        risk_assessments_payload = []
+        for ra in state["risk_assessments"]:
+            try:
+                ra_dict = {
+                    "clause_id": getattr(ra, 'clause_id', 'unknown'),
+                    "clause_text": getattr(ra, 'clause_text', ''),
+                    "risk_level": ra.risk_level.value if hasattr(ra.risk_level, 'value') else str(getattr(ra, 'risk_level', 'medium')),
+                    "risk_type": ra.risk_type.value if hasattr(ra, 'risk_type') and hasattr(ra.risk_type, 'value') else str(getattr(ra, 'risk_type', 'legal')),
+                    "risk_category": getattr(ra, 'risk_category', ''),
+                    "risk_explanation": getattr(ra, 'risk_explanation', ''),
+                    "potential_impact": getattr(ra, 'potential_impact', ''),
+                    "worst_case_scenario": getattr(ra, 'worst_case_scenario', ''),
+                    "financial_exposure": getattr(ra, 'financial_exposure', '') or "",
+                    "estimated_loss_range": getattr(ra, 'estimated_loss_range', '') or "",
+                    "real_world_example": getattr(ra, 'real_world_example', '') or "",
+                    "standard_alternative": getattr(ra, 'standard_alternative', ''),
+                    "legal_reasoning": getattr(ra, 'legal_reasoning', '')
+                }
+                risk_assessments_payload.append(ra_dict)
+            except Exception as ra_e:
+                print(f"⚠️ Error processing risk assessment: {ra_e}")
+
+        payload = {
+            "contract_id": state["contract_id"],
+            "status": "completed",
+            "overall_risk_score": state["overall_risk_score"],
+            "executive_summary": state["executive_summary"],
+            "top_critical_issues": state["top_critical_issues"],
+            "recommendation": state["recommendation"],
+            "recommendation_reasoning": state["recommendation_reasoning"],
+            "action_items": state["action_items"],
+            "risk_breakdown": state["risk_breakdown"],
+            "risk_assessments": risk_assessments_payload,
+            "agent_logs": [
+                {
+                    "agent": log.agent,
+                    "action": log.action,
+                    "message": log.message,
+                    "node": log.node,
+                    "data": log.data,
+                    "timestamp": log.timestamp.isoformat() if hasattr(log.timestamp, 'isoformat') else str(log.timestamp)
+                } for log in state["agent_logs"]
+            ],
+            "full_text": state["contract_text"]
+        }
+
+        # Try Webhook
+        webhook_success = False
+        if state.get("webhook_url"):
+            try:
+                print(f"📤 Sending webhook to {state['webhook_url']}...")
+                sys.stdout.flush()
+                with httpx.Client() as client:
+                    response = client.post(state["webhook_url"], json=payload, timeout=30.0)
+                    if response.status_code < 400:
+                        print(f"✅ WebHook sent successfully!")
+                        webhook_success = True
+            except Exception as e:
+                print(f"❌ Webhook failed: {e}")
+
+        # Fallback to direct MongoDB update
+        if not webhook_success:
+            try:
+                print("🔄 Falling back to direct MongoDB update...")
+                sys.stdout.flush()
+                client = MongoClient(settings.mongodb_uri)
+                db = client.get_default_database()
+                
+                update_data = {
+                    "status": "completed",
+                    "overallRiskScore": payload["overall_risk_score"],
+                    "aiSummary": payload["executive_summary"],
+                    "fullText": payload["full_text"],
+                    "completedAt": datetime.utcnow(),
+                    "topCriticalIssues": payload["top_critical_issues"],
+                    "recommendation": payload["recommendation"],
+                    "recommendationReasoning": payload["recommendation_reasoning"],
+                    "action_items": payload["action_items"],
+                    "riskBreakdown": payload["risk_breakdown"],
+                    "riskAssessments": payload["risk_assessments"],
+                    "agentLogs": payload["agent_logs"]
+                }
+                
+                db.analyses.update_one(
+                    {"_id": ObjectId(state["contract_id"])},
+                    {"$set": update_data}
+                )
+                print(f"✅ MongoDB updated directly for {state['contract_id']}")
+                client.close()
+            except Exception as e:
+                print(f"❌ MongoDB fallback failed: {e}")
+        
+        sys.stdout.flush()
+        return state
+
+    def run(self, contract_text: str, contract_id: str, category: str, webhook_url: str = None) -> AnalysisState:
         """Execute the optimized workflow"""
         initial_state: AnalysisState = {
             "contract_text": contract_text,
@@ -270,7 +385,8 @@ class ContractAnalysisWorkflow:
             "recommendation": "negotiate",
             "recommendation_reasoning": "",
             "action_items": {"must_fix": [], "should_negotiate": [], "nice_to_have": []},
-            "risk_breakdown": {"financial": 0, "legal": 0, "operational": 0, "reputational": 0}
+            "risk_breakdown": {"financial": 0, "legal": 0, "operational": 0, "reputational": 0},
+            "webhook_url": webhook_url
         }
         
         try:
